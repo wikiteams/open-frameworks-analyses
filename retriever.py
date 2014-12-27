@@ -36,13 +36,19 @@ except ImportError:
 results_done = 0
 results_all = 8420  # checked manually, hence its later overwritten
 pagination = 10
-
-# Connect to the Ohloh website and retrieve the account data.
-params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': sys.argv[1], 'sort': 'rating', 'page': 1})
-projects_api_url = "https://www.openhub.net/projects.xml?%s" % (params_sort_rating)
+page = 0
 
 while (results_done < results_all):
+    # Connect to the Ohloh website and retrieve the account data.
+    page += 1
+    params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': sys.argv[1], 'sort': 'rating', 'page': page})
+    projects_api_url = "https://www.openhub.net/projects.xml?%s" % (params_sort_rating)
+
     result_flow = urllib.urlopen(projects_api_url)
+
+    print ''
+    print '-------------------------- PAGE ' + str(page) + ' parsed -----------------------------'
+    print ''
 
     # Parse the response into a structured XML object
     tree = ET.parse(result_flow)
@@ -53,6 +59,9 @@ while (results_done < results_all):
     if error is not None:
         print 'Ohloh returned:', ET.tostring(error),
         sys.exit()
+
+    results_done += int(elem.find("items_returned").text)
+    results_all = int(elem.find("items_available").text)
 
     i = 0
     for node in elem.findall("result/project"):
@@ -67,7 +76,12 @@ while (results_done < results_all):
         project_updated_at = node.find("updated_at").text
         project_homepage_url = node.find("homepage_url").text
 
-        collection = [project_id, project_name, project_url, project_htmlurl, project_created_at, project_updated_at, project_homepage_url]
+        project_average_rating = node.find("average_rating").text
+        project_rating_count = node.find("rating_count").text
+        project_review_count = node.find("review_count").text
+
+        collection = [project_id, project_name, project_url, project_htmlurl, project_created_at,
+                      project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count]
 
         print collection
 

@@ -41,9 +41,9 @@ page = 0
 
 with open('results.csv', 'wb') as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
-    headers = ['project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
+    headers = ['ordinal_id', 'project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
                'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
-               'project_activity_level']
+               'project_activity_level', 'project_user_count']
     csv_writer.writerow(headers)
 
     while (results_done < results_all):
@@ -90,9 +90,11 @@ with open('results.csv', 'wb') as csv_file:
 
             project_activity_level = node.find("project_activity_index/value").text
 
-            collection = [project_id, project_name, project_url, project_htmlurl, project_created_at,
+            project_user_count = node.find("user_count").text
+
+            collection = [str(((page-1)*pagination) + i), project_id, project_name, project_url, project_htmlurl, project_created_at,
                           project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,
-                          project_activity_level]
+                          project_activity_level, project_user_count]
 
             csv_writer.writerow(collection)
             print '.'

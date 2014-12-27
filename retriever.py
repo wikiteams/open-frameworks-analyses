@@ -27,6 +27,7 @@ SOFTWARE.
 import sys
 import urllib
 import csv
+# import PyGithub
 # import ElementTree based on the python version
 try:
     import elementtree.ElementTree as ET
@@ -91,6 +92,10 @@ with open('results.csv', 'wb') as csv_file:
             project_activity_level = node.find("project_activity_index/value").text
 
             project_user_count = node.find("user_count").text
+
+            # now lets get even more sophisticated details
+            params_detailed_url = urllib.urlencode({'api_key': sys.argv[1]})
+            project_detailed_url = "https://www.openhub.net/projects/%s.xml?%s" % (project_id, params_sort_rating)
 
             collection = [str(((page-1)*pagination) + i), project_id, project_name, project_url, project_htmlurl, project_created_at,
                           project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,

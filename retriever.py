@@ -26,6 +26,7 @@ SOFTWARE.
 
 import sys
 import urllib
+import csv
 # import ElementTree based on the python version
 try:
     import elementtree.ElementTree as ET
@@ -38,58 +39,69 @@ results_all = 8420  # checked manually, hence its later overwritten
 pagination = 10
 page = 0
 
-while (results_done < results_all):
-    # Connect to the Ohloh website and retrieve the account data.
-    page += 1
-    params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': sys.argv[1], 'sort': 'rating', 'page': page})
-    projects_api_url = "https://www.openhub.net/projects.xml?%s" % (params_sort_rating)
+with open('results.csv', 'wb') as csv_file:
+    csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
+    headers = ['project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
+               'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
+               'project_activity_level']
+    csv_writer.writerow(headers)
 
-    result_flow = urllib.urlopen(projects_api_url)
+    while (results_done < results_all):
+        # Connect to the Ohloh website and retrieve the account data.
+        page += 1
+        params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': sys.argv[1], 'sort': 'rating', 'page': page})
+        projects_api_url = "https://www.openhub.net/projects.xml?%s" % (params_sort_rating)
 
-    print ''
-    print '-------------------------- PAGE ' + str(page) + ' parsed -----------------------------'
-    print ''
+        result_flow = urllib.urlopen(projects_api_url)
 
-    # Parse the response into a structured XML object
-    tree = ET.parse(result_flow)
+        print ''
+        print '-------------------------- PAGE ' + str(page) + ' parsed -----------------------------'
+        print ''
 
-    # Did Ohloh return an error?
-    elem = tree.getroot()
-    error = elem.find("error")
-    if error is not None:
-        print 'Ohloh returned:', ET.tostring(error),
-        sys.exit()
+        # Parse the response into a structured XML object
+        tree = ET.parse(result_flow)
 
-    results_done += int(elem.find("items_returned").text)
-    results_all = int(elem.find("items_available").text)
+        # Did Ohloh return an error?
+        elem = tree.getroot()
+        error = elem.find("error")
+        if error is not None:
+            print 'Ohloh returned:', ET.tostring(error),
+            sys.exit()
 
-    i = 0
-    for node in elem.findall("result/project"):
-        i += 1
-        print 'Checking element ' + str(i) + '/' + str(pagination)
+        results_done += int(elem.find("items_returned").text)
+        results_all = int(elem.find("items_available").text)
 
-        project_id = node.find("id").text
-        project_name = node.find("name").text
-        project_url = node.find("url").text
-        project_htmlurl = node.find("html_url").text
-        project_created_at = node.find("created_at").text
-        project_updated_at = node.find("updated_at").text
-        project_homepage_url = node.find("homepage_url").text
+        i = 0
+        for node in elem.findall("result/project"):
+            i += 1
+            print 'Checking element ' + str(i) + '/' + str(pagination)
 
-        project_average_rating = node.find("average_rating").text
-        project_rating_count = node.find("rating_count").text
-        project_review_count = node.find("review_count").text
+            project_id = node.find("id").text
+            project_name = node.find("name").text
+            project_url = node.find("url").text
+            project_htmlurl = node.find("html_url").text
+            project_created_at = node.find("created_at").text
+            project_updated_at = node.find("updated_at").text
+            project_homepage_url = node.find("homepage_url").text
 
-        collection = [project_id, project_name, project_url, project_htmlurl, project_created_at,
-                      project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count]
+            project_average_rating = node.find("average_rating").text
+            project_rating_count = node.find("rating_count").text
+            project_review_count = node.find("review_count").text
 
-        print collection
+            project_activity_level = node.find("project_activity_index/value").text
 
-    # Output all the immediate child properties of an Account
-    # for node in elem.find("result/project"):
-    #     if node.tag == "kudo_score":
-    #         print "%s:" % node.tag
-    #         for score in elem.find("result/account/kudo_score"):
-    #             print "\t%s:\t%s" % (score.tag, score.text)
-    #     else:
-    #         print "%s:\t%s" % (node.tag, node.text)
+            collection = [project_id, project_name, project_url, project_htmlurl, project_created_at,
+                          project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,
+                          project_activity_level]
+
+            csv_writer.writerow(collection)
+            print '.'
+
+        # Output all the immediate child properties of an Account
+        # for node in elem.find("result/project"):
+        #     if node.tag == "kudo_score":
+        #         print "%s:" % node.tag
+        #         for score in elem.find("result/account/kudo_score"):
+        #             print "\t%s:\t%s" % (score.tag, score.text)
+        #     else:
+        #         print "%s:\t%s" % (node.tag, node.text)

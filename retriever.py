@@ -35,6 +35,7 @@ except ImportError:
 # don't forget to provide api key as first arg of python script
 results_done = 0
 results_all = 8420  # checked manually, hence its later overwritten
+pagination = 10
 
 # Connect to the Ohloh website and retrieve the account data.
 params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': sys.argv[1], 'sort': 'rating', 'page': 1})
@@ -53,17 +54,22 @@ while (results_done < results_all):
         print 'Ohloh returned:', ET.tostring(error),
         sys.exit()
 
-    project_id = elem.find("result/project/id").text
-    project_name = elem.find("result/project/name").text
-    project_url = elem.find("result/project/url").text
-    project_htmlurl = elem.find("result/project/html_url").text
-    project_created_at = elem.find("result/project/created_at").text
-    project_updated_at = elem.find("result/project/updated_at").text
-    project_homepage_url = elem.find("result/project/homepage_url").text
+    i = 0
+    for node in elem.findall("result/project"):
+        i += 1
+        print 'Checking element ' + str(i) + '/' + str(pagination)
 
-    collection = [project_id, project_name, project_url, project_htmlurl, project_created_at, project_updated_at, project_homepage_url]
+        project_id = node.find("id").text
+        project_name = node.find("name").text
+        project_url = node.find("url").text
+        project_htmlurl = node.find("html_url").text
+        project_created_at = node.find("created_at").text
+        project_updated_at = node.find("updated_at").text
+        project_homepage_url = node.find("homepage_url").text
 
-    print collection
+        collection = [project_id, project_name, project_url, project_htmlurl, project_created_at, project_updated_at, project_homepage_url]
+
+        print collection
 
     # Output all the immediate child properties of an Account
     # for node in elem.find("result/project"):

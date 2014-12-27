@@ -1,0 +1,195 @@
+<<echo=FALSE>>=
+# Functions used throughout the document
+
+require(ggplot2)
+
+blank_plot <- theme(axis.title.y = element_blank())
+
+#                   legend.position="none"
+#                   axis.text.y = theme_blank(),
+#                   legend.position="right",
+#                   axis.ticks=theme_blank(),
+#                   axis.text.x = theme_blank(),
+#                   axis.title.x = theme_blank(),
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, legend = NULL, file, cols=1, layout=NULL) {
+  require(grid)
+
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+
+  numPlots = length(plots)
+
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                    ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+
+ if (numPlots==1) {
+    print(plots[[1]])
+
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+print_D_sizes <- function(D) {
+ print(paste(nrow(D), "rows"))
+ print(paste(length(D), "attributes"))
+ print(paste(round(sum(D$featured == T) / nrow(D) * 100, 1), "% featured", sep=""))
+}
+
+require(reshape2)
+plot_mhist <- function(D, attrs = NULL, ncols = 4, date.values = F) {
+  if (is.null(attrs)) {
+    attrnames <- names(D)
+  } else {
+    attrnames <- attrs
+  }
+  d <- melt(D[,attrnames], id.vars=c())
+  if (date.values) {
+      d$value <- as.Date(d$value, origin="1970-10-01")
+  }
+  ggplot(d,aes(x = value)) +
+         facet_wrap(~variable, scales = "free") +
+         geom_histogram()
+}
+plot_mhist2 <- function(D, attrs = NULL, ncols = 4) {
+  if (is.null(attrs)) {
+    attrnames <- names(D)
+  } else {
+    attrnames <- attrs
+  }
+  ps <- list()
+  for(n in attrnames) {
+    if(is.numeric(D[,n])) {
+      ps[[n]] <- ggplot(D, aes_string(x=n)) + geom_histogram(aes(y=..density..), binwidth=diff(range(D[,n]))/30, alpha=.5, position="identity") + blank_plot
+    }
+  }
+  for(i in 1:(length(ps))) {
+    ps[[i]] <- ps[[i]] + theme(legend.position="none")
+  }
+  ps["cols"] <- ncols
+  do.call(multiplot, ps)
+}
+
+require(ROCR)
+comp_attr_aucs <- function(D, attrs = NULL) {
+  if (is.null(attrs)) {
+    attrnames <- names(D)
+  } else {
+    attrnames <- attrs
+  }
+  aucs <- list()
+  for(n in attrnames) {
+    if(is.numeric(D[,n])) {
+      scores <- D[,n]
+      p <- prediction(scores, D$featured)
+      pp <- performance(p, 'auc')
+      aucs[[n]] <- slot(pp, "y.values")[[1]]
+    }
+  }
+  aucs <- unlist(aucs)
+  aucs <- pmax(aucs, 1-aucs)
+  ix <- sort.int(-aucs, index.return=T)$ix
+  aucs <- aucs[ix]
+  aucs
+}
+
+plot_mroc <- function(D, attrs = NULL, ncols = 4) {
+  if (is.null(attrs)) {
+    attrnames <- names(D)
+  } else {
+    attrnames <- attrs
+  }
+  nattr <- length(attrnames) - 1
+  nr <- ceiling(nattr / ncols)
+  par(mfrow=c(nr,ncols), new=T)
+  for(n in attrnames) {
+    if(is.numeric(D[,n])) {
+      scores <- D[,n]
+      p <- prediction(scores, D$featured)
+      pp <- performance(p, 'tpr', 'fpr')
+      plot(pp,main=n, xlab=NULL, ylab=NULL)
+    }
+  }
+}
+
+project_data <- function(D, Y, cond_cols, min_uniq = 10) {
+  cols = setdiff(names(D), cond_cols)
+  X <- D[,cols]
+  cols <- setdiff(cols, c(Y))
+  for (c in cols) {
+    if (is.numeric(X[,c]) & length(unique(X[,c])) > min_uniq) {
+      #print(c)
+      f <- as.formula(paste(c, "~", paste(cond_cols, collapse="+")))
+      mod <- lm(f, data=D)
+      #mod <- loess(f, data=D)
+      X[,c] <- resid(mod)
+    } else {
+      X[,c] <- NULL
+    }
+  }
+  yf <- as.formula(paste(Y, "~", paste(cond_cols, collapse="+")))
+  mod.y <- glm(yf, data=D, family=binomial())
+  off <- predict(mod.y, type="link")
+  list(X=X,offset=off)
+}
+
+# print model with sorted coefficients
+require(xtable)
+print_model <- function(m, maxn = NULL, minp = 0.1) {
+  pvals <- coef(summary(m))[,4]
+  idx <- order(pvals)  # sort out the p-values
+  if(!is.null(minp)) {
+    idx <- idx[pvals[idx]<=minp]
+  }
+  out <- coef(summary(m))[idx,]       # reorder coef, SE, etc. by increasing p
+  xtable(out)
+}
+
+#Function for easy plotting of model ROCs
+require(ROCR)
+plot_roc <- function(model, Dtest, rpart = F, weka=F) {
+  if (weka) {
+    scores <- predict(model, Dtest, "probability")
+  } else {
+    scores <- predict(model, Dtest)
+  }
+  if (rpart | weka) {
+    scores <- scores[,2]
+  }
+  p <- prediction(scores, Dtest$featured)
+  pp <- performance(p, 'tpr', 'fpr')
+  ppa <- performance(p, 'auc')
+  auc <- slot(ppa, "y.values")[[1]]
+  print(auc)
+  pp
+}
+@
+

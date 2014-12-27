@@ -44,7 +44,8 @@ with open('results.csv', 'wb') as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
     headers = ['ordinal_id', 'project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
                'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
-               'project_activity_level', 'project_user_count']
+               'project_activity_level', 'project_user_count', 'twelve_month_contributor_count', 'total_contributor_count',
+               'twelve_month_commit_count', 'total_commit_count', 'total_code_lines']
     csv_writer.writerow(headers)
 
     while (results_done < results_all):
@@ -66,7 +67,7 @@ with open('results.csv', 'wb') as csv_file:
         elem = tree.getroot()
         error = elem.find("error")
         if error is not None:
-            print 'Ohloh returned:', ET.tostring(error),
+            print 'OpenHub returned:', ET.tostring(error),
             sys.exit()
 
         results_done += int(elem.find("items_returned").text)
@@ -97,9 +98,28 @@ with open('results.csv', 'wb') as csv_file:
             params_detailed_url = urllib.urlencode({'api_key': sys.argv[1]})
             project_detailed_url = "https://www.openhub.net/projects/%s.xml?%s" % (project_id, params_sort_rating)
 
+            detailed_result_flow = urllib.urlopen(project_detailed_url)
+
+            # Parse the response into a structured XML object
+            detailed_tree = ET.parse(detailed_result_flow)
+
+            # Did Ohloh return an error?
+            detailed_elem = detailed_tree.getroot()
+            detailed_error = detailed_elem.find("error")
+            if detailed_error is not None:
+                print 'Ohloh returned:', ET.tostring(detailed_error),
+                sys.exit()
+
+            twelve_month_contributor_count = detailed_elem.find("result/project/analysis/twelve_month_contributor_count").text
+            total_contributor_count = detailed_elem.find("result/project/analysis/total_contributor_count").text
+            twelve_month_commit_count = detailed_elem.find("result/project/analysis/twelve_month_commit_count").text
+            total_commit_count = detailed_elem.find("result/project/analysis/total_commit_count").text
+            total_code_lines = detailed_elem.find("result/project/analysis/total_code_lines").text
+
             collection = [str(((page-1)*pagination) + i), project_id, project_name, project_url, project_htmlurl, project_created_at,
                           project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,
-                          project_activity_level, project_user_count]
+                          project_activity_level, project_user_count, twelve_month_contributor_count, total_contributor_count,
+                          twelve_month_commit_count, total_commit_count, total_code_lines]
 
             csv_writer.writerow(collection)
             print '.'

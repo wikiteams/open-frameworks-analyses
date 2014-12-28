@@ -91,6 +91,7 @@ print 'Current status of GitHub API...: ' + lapis.status + ' (last update: ' + s
 
 with open('results.csv', 'wb') as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
+    sepinfo = ['sep=;']
     headers = ['ordinal_id', 'github_repo_id', 'repo_full_name', 'repo_html_url', 'repo_forks_count',
                'repo_stargazers_count', 'repo_created_at', 'repo_is_fork', 'repo_has_issues', 
                'repo_open_issues_count', 'repo_has_wiki', 'repo_network_count',
@@ -99,6 +100,7 @@ with open('results.csv', 'wb') as csv_file:
                'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
                'project_activity_level', 'project_user_count', 'twelve_month_contributor_count', 'total_contributor_count',
                'twelve_month_commit_count', 'total_commit_count', 'total_code_lines', 'main_language_name']
+    csv_writer.writerow(sepinfo)
     csv_writer.writerow(headers)
 
     Github(login_or_token=credential['pass'], client_id=credential['client_id'],

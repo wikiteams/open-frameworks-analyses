@@ -28,12 +28,17 @@ import sys
 import urllib
 import csv
 import random
+import MySQLdb
 from github import Github, UnknownObjectException, GithubException
 # import ElementTree based on the python version
 try:
     import elementtree.ElementTree as ET
 except ImportError:
     import xml.etree.ElementTree as ET
+try:
+    import MySQLdb as MSQL
+except ImportError:
+    import _mysql as MSQL
 
 
 pagination = 10
@@ -97,6 +102,10 @@ print 'Assigning current github client to the first object in a list'
 github_client = github_clients[0]
 lapis = local_gh.get_api_status()
 print 'Current status of GitHub API...: ' + lapis.status + ' (last update: ' + str(lapis.last_updated) + ')'
+
+conn = MySQLdb.connect(host="127.0.0.1", user=open('mysqlu.dat', 'r').read(), passwd=open('mysqlp.dat', 'r').read(), db="github")
+print 'Testing mySql connection...'
+print str(conn.ping())
 
 with open('results.csv', 'wb') as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)

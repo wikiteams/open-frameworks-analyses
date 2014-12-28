@@ -54,3 +54,5 @@ docs/_build/
 target/
 /pass.txt
 /openhub-credentials.txt
+/mysqlp.dat
+/mysqlu.dat

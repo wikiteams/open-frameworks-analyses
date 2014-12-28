@@ -90,10 +90,11 @@ print 'Current status of GitHub API...: ' + lapis.status + ' (last update: ' + s
 
 with open('results.csv', 'wb') as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
-    headers = ['ordinal_id', 'gh_entity', 'full_name', 'html_url', 'forks_count',
-               'stargazers_count', 'created_at', 'is_fork', 'has_issues', 'open_issues_count', 'has_wiki', 'network_count',
-               'pushed_at', 'size', 'updated_at', 'watchers_count', 'project_id', 'project_name', 'project_url',
-               'project_htmlurl', 'project_created_at',
+    headers = ['ordinal_id', 'github_repo_id', 'repo_full_name', 'repo_html_url', 'repo_forks_count',
+               'repo_stargazers_count', 'repo_created_at', 'repo_is_fork', 'repo_has_issues', 
+               'repo_open_issues_count', 'repo_has_wiki', 'repo_network_count',
+               'repo_pushed_at', 'repo_size', 'repo_updated_at', 'wrepo_atchers_count',
+               'project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
                'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
                'project_activity_level', 'project_user_count', 'twelve_month_contributor_count', 'total_contributor_count',
                'twelve_month_commit_count', 'total_commit_count', 'total_code_lines', 'main_language_name']
@@ -218,25 +219,25 @@ with open('results.csv', 'wb') as csv_file:
 
                 try:
                     repository = current_ghc.get_repo(gh_entity)
-                    full_name = repository.full_name
-                    html_url = repository.html_url
-                    stargazers_count = repository.stargazers_count
-                    forks_count = repository.forks_count
-                    created_at = repository.created_at
-                    is_fork = repository.fork
-                    has_issues = repository.has_issues
-                    open_issues_count = repository.open_issues_count
-                    has_wiki = repository.has_wiki
-                    network_count = repository.network_count
-                    pushed_at = repository.pushed_at
-                    size = repository.size
-                    updated_at = repository.updated_at
-                    watchers_count = repository.watchers_count
+                    repo_full_name = repository.full_name
+                    repo_html_url = repository.html_url
+                    repo_stargazers_count = repository.stargazers_count
+                    repo_forks_count = repository.forks_count
+                    repo_created_at = repository.created_at
+                    repo_is_fork = repository.fork
+                    repo_has_issues = repository.has_issues
+                    repo_open_issues_count = repository.open_issues_count
+                    repo_has_wiki = repository.has_wiki
+                    repo_network_count = repository.network_count
+                    repo_pushed_at = repository.pushed_at
+                    repo_size = repository.size
+                    repo_updated_at = repository.updated_at
+                    repo_watchers_count = repository.watchers_count
 
-                    collection = [str(((page-1)*pagination) + i), gh_entity, full_name, html_url, str(forks_count),
-                                  str(stargazers_count), created_at, is_fork, has_issues, open_issues_count, has_wiki, network_count,
-                                  pushed_at, size, updated_at, watchers_count, project_id, project_name, project_url,
-                                  project_htmlurl, project_created_at,
+                    collection = [str(((page-1)*pagination) + i), gh_entity, repo_full_name, repo_html_url, str(repo_forks_count),
+                                  str(repo_stargazers_count), repo_created_at, repo_is_fork, repo_has_issues, repo_open_issues_count,
+                                  repo_has_wiki, repo_network_count, repo_pushed_at, repo_size, repo_updated_at, repo_watchers_count,
+                                  project_id, project_name, project_url, project_htmlurl, project_created_at,
                                   project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,
                                   project_activity_level, project_user_count, twelve_month_contributor_count, total_contributor_count,
                                   twelve_month_commit_count, total_commit_count, total_code_lines, main_language_name]

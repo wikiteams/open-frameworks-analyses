@@ -48,15 +48,13 @@ def num_modulo(thread_id_count__):
 results_done = 0
 results_all = 8420  # checked manually, hence its later overwritten
 page = 0
-
 timeout = 50
 
 github_clients = list()
 github_clients_ids = list()
-
 secrets = []
-
 credential_list = []
+
 # reading the secrets, the Github factory objects will be created in next paragraph
 with open('pass.txt', 'r') as passfile:
     line__id = 0
@@ -70,6 +68,12 @@ with open('pass.txt', 'r') as passfile:
             client_secret__ = str(secrets[3]).strip()
             credential_list.append({'login': login_or_token__, 'pass': pass_string, 'client_id': client_id__, 'client_secret': client_secret__})
             del secrets[:]
+
+openhub_secrets = []
+
+with open('openhub-credentials.txt', 'r') as passfile:
+    for line in passfile:
+        openhub_secrets.append(line)
 
 print str(len(credential_list)) + ' full credentials successfully loaded'
 
@@ -93,7 +97,7 @@ with open('results.csv', 'wb') as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
     sepinfo = ['sep=;']
     headers = ['ordinal_id', 'github_repo_id', 'repo_full_name', 'repo_html_url', 'repo_forks_count',
-               'repo_stargazers_count', 'repo_created_at', 'repo_is_fork', 'repo_has_issues', 
+               'repo_stargazers_count', 'repo_created_at', 'repo_is_fork', 'repo_has_issues',
                'repo_open_issues_count', 'repo_has_wiki', 'repo_network_count',
                'repo_pushed_at', 'repo_size', 'repo_updated_at', 'wrepo_atchers_count',
                'project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
@@ -240,6 +244,8 @@ with open('results.csv', 'wb') as csv_file:
                     repo_size = repository.size
                     repo_updated_at = repository.updated_at
                     repo_watchers_count = repository.watchers_count
+
+                    #  Now its time to get the list of developers!
 
                     collection = [str(((page-1)*pagination) + i), gh_entity, repo_full_name, repo_html_url, str(repo_forks_count),
                                   str(repo_stargazers_count), repo_created_at, repo_is_fork, repo_has_issues, repo_open_issues_count,

@@ -36,6 +36,7 @@ except ImportError:
 
 
 pagination = 10
+NullChar = 'NaN'
 
 
 def num_modulo(thread_id_count__):
@@ -207,10 +208,14 @@ with open('results.csv', 'wb') as csv_file:
 
             twelve_month_contributor_count = detailed_elem.find("result/project/analysis/twelve_month_contributor_count").text
             total_contributor_count = detailed_elem.find("result/project/analysis/total_contributor_count").text
-            twelve_month_commit_count = detailed_elem.find("result/project/analysis/twelve_month_commit_count").text
-            total_commit_count = detailed_elem.find("result/project/analysis/total_commit_count").text
-            total_code_lines = detailed_elem.find("result/project/analysis/total_code_lines").text
-            main_language_name = detailed_elem.find("result/project/analysis/main_language_name").text
+            twelve_month_commit_count = detailed_elem.find("result/project/analysis/twelve_month_commit_count")
+            twelve_month_commit_count = twelve_month_commit_count.text if twelve_month_commit_count is not None else NullChar
+            total_commit_count = detailed_elem.find("result/project/analysis/total_commit_count")
+            total_commit_count = total_commit_count.text if total_commit_count is not None else NullChar
+            total_code_lines = detailed_elem.find("result/project/analysis/total_code_lines")
+            total_code_lines = total_code_lines.text if total_code_lines is not None else NullChar
+            main_language_name = detailed_elem.find("result/project/analysis/main_language_name")
+            main_language_name = main_language_name.text if main_language_name is not None else NullChar
 
             current_ghc = github_clients[num_modulo(i-1)]
             current_ghc_desc = github_clients_ids[num_modulo(i-1)]

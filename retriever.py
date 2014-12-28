@@ -27,6 +27,7 @@ SOFTWARE.
 import sys
 import urllib
 import csv
+import random
 from github import Github, UnknownObjectException, GithubException
 # import ElementTree based on the python version
 try:
@@ -43,6 +44,10 @@ def num_modulo(thread_id_count__):
     global no_of_threads
     return thread_id_count__ % pagination
 
+
+def return_random_openhub_key():
+    global openhub_secrets
+    return random.choice(openhub_secrets)
 
 # don't forget to provide api key as first arg of python script
 results_done = 0
@@ -113,7 +118,8 @@ with open('results.csv', 'wb') as csv_file:
     while (results_done < results_all):
         # Connect to the Ohloh website and retrieve the account data.
         page += 1
-        params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': sys.argv[1], 'sort': 'rating', 'page': page})
+        params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': return_random_openhub_key(),
+                                               'sort': 'rating', 'page': page})
         projects_api_url = "https://www.openhub.net/projects.xml?%s" % (params_sort_rating)
 
         result_flow = urllib.urlopen(projects_api_url)
@@ -165,7 +171,7 @@ with open('results.csv', 'wb') as csv_file:
             # in case of multiple github CODE repositories (quite often)
             # treat as a seperate repo - remember, we focus on github repositories, not aggregates
 
-            enlistments_detailed_params = urllib.urlencode({'api_key': sys.argv[1]})
+            enlistments_detailed_params = urllib.urlencode({'api_key': return_random_openhub_key()})
             enlistments_detailed_url = "https://www.openhub.net/projects/%s/enlistments.xml?%s" % (project_id, enlistments_detailed_params)
 
             enlistments_result_flow = urllib.urlopen(enlistments_detailed_url)
@@ -197,7 +203,7 @@ with open('results.csv', 'wb') as csv_file:
                 continue
 
             # now lets get even more sophisticated details
-            params_detailed_url = urllib.urlencode({'api_key': sys.argv[1]})
+            params_detailed_url = urllib.urlencode({'api_key': return_random_openhub_key()})
             project_detailed_url = "https://www.openhub.net/projects/%s.xml?%s" % (project_id, params_sort_rating)
 
             detailed_result_flow = urllib.urlopen(project_detailed_url)

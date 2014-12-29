@@ -28,7 +28,6 @@ import sys
 import urllib
 import csv
 import random
-import MySQLdb
 from github import Github, UnknownObjectException, GithubException
 # import ElementTree based on the python version
 try:
@@ -52,13 +51,22 @@ def num_modulo(thread_id_count__):
 
 def return_random_openhub_key():
     global openhub_secrets
-    return random.choice(openhub_secrets)
+    return random.choice(openhub_secrets).strip()
 
 # don't forget to provide api key as first arg of python script
 results_done = 0
 results_all = 8420  # checked manually, hence its later overwritten
 page = 0
 timeout = 50
+
+conn = MSQL.connect(host="127.0.0.1", user=open('mysqlu.dat', 'r').read(), passwd=open('mysqlp.dat', 'r').read(), db="github")
+print 'Testing mySql connection...'
+print 'Pinging database: ' + (str(conn.ping()) if conn.ping() is not None else 'NaN')
+cursor = conn.cursor()
+cursor.execute(r'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = "%s"' % 'github')
+rows = cursor.fetchall()
+print 'There are: ' + str(rows[0][0]) + ' table objects in the local GHtorrent copy'
+cursor.close()
 
 github_clients = list()
 github_clients_ids = list()
@@ -79,13 +87,15 @@ with open('pass.txt', 'r') as passfile:
             credential_list.append({'login': login_or_token__, 'pass': pass_string, 'client_id': client_id__, 'client_secret': client_secret__})
             del secrets[:]
 
+print str(len(credential_list)) + ' full credentials successfully loaded'
+
 openhub_secrets = []
 
 with open('openhub-credentials.txt', 'r') as passfile:
     for line in passfile:
         openhub_secrets.append(line)
 
-print str(len(credential_list)) + ' full credentials successfully loaded'
+print str(len(openhub_secrets)) + ' openhub credentials successfully loaded'
 
 # with the credential_list list we create a list of Github objects, github_clients holds ready Github objects
 for credential in credential_list:
@@ -102,10 +112,6 @@ print 'Assigning current github client to the first object in a list'
 github_client = github_clients[0]
 lapis = local_gh.get_api_status()
 print 'Current status of GitHub API...: ' + lapis.status + ' (last update: ' + str(lapis.last_updated) + ')'
-
-conn = MySQLdb.connect(host="127.0.0.1", user=open('mysqlu.dat', 'r').read(), passwd=open('mysqlp.dat', 'r').read(), db="github")
-print 'Testing mySql connection...'
-print str(conn.ping())
 
 with open('results.csv', 'wb') as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)

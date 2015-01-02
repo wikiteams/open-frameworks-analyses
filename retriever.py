@@ -253,6 +253,7 @@ with open('results.csv', 'wb') as csv_file:
 
                 try:
                     repository = current_ghc.get_repo(gh_entity)
+                    repo_name = repository.name
                     repo_full_name = repository.full_name
                     repo_html_url = repository.html_url
                     repo_stargazers_count = repository.stargazers_count
@@ -275,8 +276,10 @@ with open('results.csv', 'wb') as csv_file:
 
                     # Get here project id used in the database !
                     cursor = conn.cursor()
-                    cursor.execute(r'SELECT user_id FROM poject_members WHERE repo_id = "%s"' % 'github')
+                    cursor.execute(r'select distinct id from (select * from projects where `name`="{0}") as p where url like "{1}"'.format(repo_name, repo_full_name))
                     rows = cursor.fetchall()
+
+                    repo_db_id = rows[0]
 
                     # Now get list of GitHub logins which are project_members !
                     cursor.execute(r'SELECT user_id FROM poject_members WHERE repo_id = "%s"' % 'github')

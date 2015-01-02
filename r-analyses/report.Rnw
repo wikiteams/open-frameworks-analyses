@@ -1,0 +1,156 @@
+\documentclass{article}
+
+\usepackage[margin=1.5cm]{geometry}
+\usepackage{spverbatim}
+
+
+% read defined functions
+<<functions, child='functions.Rnw'>>=
+@
+
+
+\title{Github OSS frameworks - data analysis}
+\author{Szymon Jaroszewicz, Oskar Jarczyk et.al.}
+\date{28 December 2014}
+
+
+\begin{document}
+\maketitle
+
+<<warnings>>=
+options("warn" = -1)
+@
+
+\section{Read in the data}
+
+
+<<loadAggregatedDataset>>=
+D <- read.table("../../GitHubData/converted/result_stargazers_2013_final_mature_stars.csv", sep=";", header=T)
+#D <- read.table("../../GitHubData/Dataset-GitHub-Leszek-request/sorted_and_aggregated_enriched/result_stargazers_2013_final_mature_stars.csv", sep=";", header=T)
+names(D)
+D$repository_created_at <- as.Date(D$repository_created_at)
+D$repository_pushed_at <- as.Date(D$repository_pushed_at)
+# convert some factors to numeric for easier computations
+#D$repository_fork <- as.numeric(D$repository_fork)
+#D$repository_has_wiki <- as.numeric(D$repository_has_wiki)
+#D$repository_has_issues <- as.numeric(D$repository_has_issues)
+#D$repository_has_downloads <- as.numeric(D$repository_has_downloads)
+@
+
+Read \Sexpr{nrow(D)} recods.
+
+<<histograms,fig.height=4>>=
+# discrete
+plot_mhist(D, attrs=c("stargazers_count", "repository_fork", "repository_has_wiki", "repository_has_issues"))
+# continuous
+plot_mhist(D, attrs=c("repository_created_at", "repository_pushed_at"), date.values = T)
+@
+
+<<histogram_cut,fig.height=4>>=
+# contrib count
+hist(D$contributors_count, breaks=100)
+summary(D$contributors_count, breaks=100)
+hist(log(1+D$contributors_count), breaks=100)
+qqnorm(log(1+D$contributors_count))
+hist(log(1+log(1+D$contributors_count)), breaks=100)
+qqnorm(log(1+log(1+D$contributors_count)))
+summary(log(1+D$contributors_count), breaks=100)
+# stargazers count
+hist(D$stargazers_count, breaks=100)
+hist(log(1+D$stargazers_count), breaks=100)
+qqnorm(log(1+D$stargazers_count))
+hist(log(1+log(1+D$stargazers_count)), breaks=100)
+qqnorm(log(1+log(1+D$stargazers_count)))
+summary(D$stargazers_count)
+# delta stargazers count
+# hist(D$maximum.sum.delta_stargazing.., breaks=100)
+# hist(log(1+D$maximum.sum.delta_stargazing..), breaks=100)
+# qqnorm(log(1+D$maximum.sum.delta_stargazing..))
+# hist(log(1+log(1+D$maximum.sum.delta_stargazing..)), breaks=100)
+# qqnorm(log(1+log(1+D$maximum.sum.delta_stargazing..)))
+# summary(D$maximum.sum.delta_stargazing..)
+# zamien delta stargazers count na rating
+@
+
+<<apply-log>>=
+D$contributors_count <- log(1+D$contributors_count)
+D$stargazers_count <- log(1+D$stargazers_count)
+#D$maximum.sum.delta_stargazing.. <- log(1+D$maximum.sum.delta_stargazing..)
+@
+
+<<regr.contrib.star.all>>=
+ggplot(D, aes(x=contributors_count, y=log10(1+stargazers_count))) + geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+ggplot(D, aes(x=contributors_count, y=stargazers_count)) + geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+@
+
+<<regr.other>>=
+attrs <- c("repository_fork",
+                  "repository_has_wiki", "repository_has_issues", "repository_has_downloads")
+d <- cbind(melt(D[,attrs], id.vars=c()), stargazers_count=D$stargazers_count)
+ggplot(d,aes(x = value, y=stargazers_count)) +
+       facet_wrap(~variable, scales = "free_x") +
+       geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+ggplot(d,aes(x = value, y=log10(1+stargazers_count))) +
+       facet_wrap(~variable, scales = "free_x") +
+       geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+ggplot(D,aes(x = maximum.sum.delta_stargazing.., y=stargazers_count)) +
+       geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+ggplot(D,aes(x = maximum.sum.delta_stargazing.., y=log10(1+stargazers_count))) +
+       geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+@
+
+<<regr.date>>=
+d <- cbind(melt(D[,c("repository_created_at", "repository_pushed_at")], id.vars=c()), stargazers_count=D$stargazers_count)
+d$value <- as.Date(d$value, origin="1970-10-01")
+ggplot(d,aes(x = value, y=stargazers_count)) +
+       facet_wrap(~variable, scales = "free_x") +
+       geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+ggplot(d,aes(x = value, y=log10(1+stargazers_count))) +
+       facet_wrap(~variable, scales = "free_x") +
+       geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+@
+
+<<final.data>>=
+D$stargazers_count <- log(1+D$stargazers_count)
+@
+
+<<model.of.stars>>=
+par(mfrow=c(2,2))
+m <- lm(stargazers_count ~ contributors_count + repository_pushed_at + repository_created_at, D, na.action=na.exclude)
+summary(m)
+plot(m)
+par(mfrow=c(2,2))
+m2 <- lm(stargazers_count ~ contributors_count + repository_pushed_at + repository_created_at + repository_fork + repository_has_wiki + repository_has_issues + repository_has_downloads, D, na.action=na.exclude)
+summary(m2)
+plot(m2)
+anova(m, m2)
+par(mfrow=c(2,2))
+m3 <- lm(stargazers_count ~ contributors_count + repository_pushed_at + repository_created_at + repository_fork, D, na.action=na.exclude)
+summary(m3)
+plot(m3)
+anova(m, m3)
+@
+
+<<add.star.res>>=
+D$star_resid <- resid(m3)
+@
+
+<<save.data>>=
+save(D, file = "../../Rdata/project_stars.RData")
+@
+
+
+%<<descr.read>>=
+%library(tm)
+%C <- Corpus(DataframeSource(data.frame(D[, "repository_description"])))
+%C <- tm_map(C, stripWhitespace)
+%#C <- tm_map(C, removePunctuation)
+%#C <- tm_map(C, tolower)
+%#C <- tm_map(C, function(x) removeWords(x, stopwords("english")))
+%#require(RColorBrewer)
+%#pal2 <- brewer.pal(8,"Dark2")
+%#library(wordcloud)
+%#wordcloud(C, colors=pal2)
+%@
+
+\end{document}

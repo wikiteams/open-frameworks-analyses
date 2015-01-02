@@ -282,6 +282,8 @@ with open('results.csv', 'wb') as csv_file:
                     cursor.execute(r'SELECT user_id FROM poject_members WHERE repo_id = "%s"' % 'github')
                     project_developers = cursor.fetchall()
 
+                    contributors_count = project_developers.size()
+
                     for project_developer in project_developers:
 
                         # create a GitHub user named object for GitHub API
@@ -301,7 +303,8 @@ with open('results.csv', 'wb') as csv_file:
                         current_user_name = current_user.name
 
                         collection = [str(((page-1)*pagination) + i), gh_entity, repo_full_name, repo_html_url, str(repo_forks_count),
-                                      str(repo_stargazers_count), repo_created_at, repo_is_fork, repo_has_issues, repo_open_issues_count,
+                                      str(repo_stargazers_count), str(contributors_count), 
+                                      repo_created_at, repo_is_fork, repo_has_issues, repo_open_issues_count,
                                       repo_has_wiki, repo_network_count, repo_pushed_at, repo_size, repo_updated_at, repo_watchers_count,
                                       project_id, project_name, project_url, project_htmlurl, project_created_at,
                                       project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,

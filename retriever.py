@@ -59,7 +59,7 @@ results_all = 8420  # checked manually, hence its later overwritten
 page = 0
 timeout = 50
 
-conn = MSQL.connect(host="127.0.0.1", user=open('mysqlu.dat', 'r').read(), passwd=open('mysqlp.dat', 'r').read(), db="github")
+conn = MSQL.connect(host="10.4.4.3", port=3306, user=open('mysqlu.dat', 'r').read(), passwd=open('mysqlp.dat', 'r').read(), db="github")
 print 'Testing mySql connection...'
 print 'Pinging database: ' + (str(conn.ping()) if conn.ping() is not None else 'NaN')
 cursor = conn.cursor()
@@ -247,6 +247,8 @@ with open('results.csv', 'wb') as csv_file:
             current_ghc = github_clients[num_modulo(i-1)]
             current_ghc_desc = github_clients_ids[num_modulo(i-1)]
 
+            print 'Now using github client id: ' + str(current_ghc_desc)
+
             for gh_entity in repos_lists:
 
                 try:
@@ -266,18 +268,48 @@ with open('results.csv', 'wb') as csv_file:
                     repo_updated_at = repository.updated_at
                     repo_watchers_count = repository.watchers_count
 
-                    #  Now its time to get the list of developers!
+                    # Now its time to get the list of developers!
 
-                    collection = [str(((page-1)*pagination) + i), gh_entity, repo_full_name, repo_html_url, str(repo_forks_count),
-                                  str(repo_stargazers_count), repo_created_at, repo_is_fork, repo_has_issues, repo_open_issues_count,
-                                  repo_has_wiki, repo_network_count, repo_pushed_at, repo_size, repo_updated_at, repo_watchers_count,
-                                  project_id, project_name, project_url, project_htmlurl, project_created_at,
-                                  project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,
-                                  project_activity_level, project_user_count, twelve_month_contributor_count, total_contributor_count,
-                                  twelve_month_commit_count, total_commit_count, total_code_lines, main_language_name]
+                    # yay! rec-09 mysql instance is visible from the yoshimune computer !
+                    # just pjatk things.. carry on
 
-                    csv_writer.writerow(collection)
-                    print '.'
+                    # Get here project id used in the database !
+                    cursor = conn.cursor()
+                    cursor.execute(r'SELECT user_id FROM poject_members WHERE repo_id = "%s"' % 'github')
+                    rows = cursor.fetchall()
+
+                    # Now get list of GitHub logins which are project_members !
+                    cursor.execute(r'SELECT user_id FROM poject_members WHERE repo_id = "%s"' % 'github')
+                    project_developers = cursor.fetchall()
+
+                    for project_developer in project_developers:
+
+                        # create a GitHub user named object for GitHub API
+                        current_user = current_ghc.get_user(project_developer)
+
+                        current_user_bio = current_user.bio
+                        current_user_blog = current_user.blog
+                        current_user_collaborators = current_user.collaborators
+                        current_user_company = current_user.company
+                        current_user_contributions = current_user.contributions
+                        current_user_created_at = current_user.created_at
+                        current_user_followers = current_user.followers
+                        current_user_following = current_user.following
+
+                        current_user_hireable = current_user.hireable
+                        current_user_login = current_user.login
+                        current_user_name = current_user.name
+
+                        collection = [str(((page-1)*pagination) + i), gh_entity, repo_full_name, repo_html_url, str(repo_forks_count),
+                                      str(repo_stargazers_count), repo_created_at, repo_is_fork, repo_has_issues, repo_open_issues_count,
+                                      repo_has_wiki, repo_network_count, repo_pushed_at, repo_size, repo_updated_at, repo_watchers_count,
+                                      project_id, project_name, project_url, project_htmlurl, project_created_at,
+                                      project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,
+                                      project_activity_level, project_user_count, twelve_month_contributor_count, total_contributor_count,
+                                      twelve_month_commit_count, total_commit_count, total_code_lines, main_language_name]
+
+                        csv_writer.writerow(collection)
+                        print '.'
                 except UnknownObjectException:
                     print 'Repo ' + gh_entity + ' is not available anymore..'
                 except GithubException:

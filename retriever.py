@@ -287,11 +287,16 @@ with open('results.csv', 'wb') as csv_file:
 
                     print 'project id retrieved from database is: ' + str()
 
+                    cursor.close()
+
+                    cursor = conn.cursor()
                     # Now get list of GitHub logins which are project_members !
-                    cursor.execute(r'SELECT user_id FROM poject_members WHERE repo_id = "%s"' % 'github')
+                    cursor.execute(r'SELECT login FROM project_members INNER JOIN users ON users.id = project_members.user_id WHERE repo_id = %s' % repo_db_id)
                     project_developers = cursor.fetchall()
 
-                    contributors_count = project_developers.size()
+                    project_developers = [i[0] for i in project_developers] #  unzipping tuples in tuples
+
+                    contributors_count = len(project_developers)
 
                     for project_developer in project_developers:
 

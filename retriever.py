@@ -272,14 +272,20 @@ with open('results.csv', 'wb') as csv_file:
                     # Now its time to get the list of developers!
 
                     # yay! rec-09 mysql instance is visible from the yoshimune computer !
+                    # ok, but I forgot github blacklisted our comptuing clusters
+                    # make sure your local win machine runs it..
                     # just pjatk things.. carry on
+
+                    print 'Retrieving the project id from mysql database.. should take max 1 second.'
 
                     # Get here project id used in the database !
                     cursor = conn.cursor()
-                    cursor.execute(r'select distinct id from (select * from projects where `name`="{0}") as p where url like "{1}"'.format(repo_name, repo_full_name))
+                    cursor.execute(r'select distinct id from (select * from projects where `name`="{0}") as p where url like "%{1}"'.format(repo_name, repo_full_name))
                     rows = cursor.fetchall()
 
                     repo_db_id = rows[0]
+
+                    print 'project id retrieved from database is: ' + str()
 
                     # Now get list of GitHub logins which are project_members !
                     cursor.execute(r'SELECT user_id FROM poject_members WHERE repo_id = "%s"' % 'github')
@@ -305,8 +311,62 @@ with open('results.csv', 'wb') as csv_file:
                         current_user_login = current_user.login
                         current_user_name = current_user.name
 
+                        # Does he commit during business hours?
+                        scream.log_debug("Starting to analyze OSRC card for user: " + str(developer_login), True)
+                        developer_works_during_bd = None
+                        developer_works_period = None
+                        tries = 5
+
+                        while True:
+                            try:
+                                osrc_url = 'http://osrc.dfm.io/' + str(developer_login) + '.json'
+                                scream.log_debug('The osrc url is: ' + osrc_url, True)
+                                # OSRC was grumpy about the urllib2 even with headers attached
+                                # hdr = {'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7',
+                                #        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                                #        'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
+                                #        'Accept-Encoding': 'none',
+                                #        'Accept-Language': 'en-US,en;q=0.8',
+                                #        'Connection': 'keep-alive'}
+                                # req = urllib2.Request(osrc_url, headers=hdr)
+                                # response = urllib2.urlopen(req)
+                                # thus i moved to requests library
+                                proxy = {'http': '184.105.239.95:8080'}
+                                session_osrc = requests.Session()
+                                requests_osrc = session_osrc.get(osrc_url, proxies=proxy)
+                                data = json.loads(requests_osrc.text)
+                                time_of_activity_per_hours = [0 for i in xrange(24)]
+                                for day_entry_element in data['usage']['events']:
+                                    for day___ in day_entry_element['day']:
+                                        time_of_activity_per_hours[day_entry_element['day'].index(day___)] += parse_number(day___)
+                                scream.log_debug("Histogram for hours for user: " + str(developer_login) + ' created..', True)
+                                # count activity during business day
+                                count_bd__ = 0
+                                count_bd__ += sum(time_of_activity_per_hours[i] for i in range(9, 18))
+                                # now count activity during not-busines hours :)
+                                count_nwh__ = 0
+                                count_nwh__ += sum(time_of_activity_per_hours[i] for i in range(0, 9))
+                                count_nwh__ += sum(time_of_activity_per_hours[i] for i in range(18, 24))
+                                developer_works_during_bd = True if count_bd__ >= count_nwh__ else False
+                                scream.log_debug('Running C program...', True)
+                                args___ = ['hist_block.exe' if is_win() else './hist_block'] + [str(x) for x in time_of_activity_per_hours]
+                                developer_works_period = subprocess.Popen(args___, stdout=subprocess.PIPE).stdout.read()
+                                # -----------------------------------------------------------------------
+                                scream.log_debug('Finished analyze OSRC card for user: ' + str(developer_login), True)
+                                break
+                            except Exception as e:
+                                scream.log_error(str(e), True)
+                                freeze('OSRC gave error, probably 404')
+                                scream.say('try ' + str(tries) + ' more times')
+                                tries -= 1
+                            finally:
+                                if tries < 1:
+                                    developer_works_during_bd = 0
+                                    developer_works_period = 0
+                                    break
+
                         collection = [str(((page-1)*pagination) + i), gh_entity, repo_full_name, repo_html_url, str(repo_forks_count),
-                                      str(repo_stargazers_count), str(contributors_count), 
+                                      str(repo_stargazers_count), str(contributors_count),
                                       repo_created_at, repo_is_fork, repo_has_issues, repo_open_issues_count,
                                       repo_has_wiki, repo_network_count, repo_pushed_at, repo_size, repo_updated_at, repo_watchers_count,
                                       project_id, project_name, project_url, project_htmlurl, project_created_at,

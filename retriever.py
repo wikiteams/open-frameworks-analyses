@@ -28,6 +28,10 @@ import sys
 import urllib
 import csv
 import random
+import scream
+import json
+import requests
+import subprocess
 from github import Github, UnknownObjectException, GithubException
 # import ElementTree based on the python version
 try:
@@ -42,6 +46,15 @@ except ImportError:
 
 pagination = 10
 NullChar = 'NaN'
+sleepy_head_time = 25
+
+
+def is_win():
+    return sys.platform.startswith('win')
+
+
+def parse_number(s):
+    return int(float(s))
 
 
 def num_modulo(thread_id_count__):
@@ -52,6 +65,13 @@ def num_modulo(thread_id_count__):
 def return_random_openhub_key():
     global openhub_secrets
     return random.choice(openhub_secrets).strip()
+
+
+def freeze(message):
+    global sleepy_head_time
+    scream.log_warning('Sleeping for ' + str(sleepy_head_time) + ' seconds. Reason: ' + str(message), True)
+    time.sleep(sleepy_head_time)
+
 
 # don't forget to provide api key as first arg of python script
 results_done = 0
@@ -316,6 +336,8 @@ with open('results.csv', 'wb') as csv_file:
                         current_user_login = current_user.login
                         current_user_name = current_user.name
 
+                        developer_login = project_developer
+
                         # Does he commit during business hours?
                         scream.log_debug("Starting to analyze OSRC card for user: " + str(developer_login), True)
                         developer_works_during_bd = None
@@ -324,7 +346,7 @@ with open('results.csv', 'wb') as csv_file:
 
                         while True:
                             try:
-                                osrc_url = 'http://osrc.dfm.io/' + str(developer_login) + '.json'
+                                osrc_url = 'https://osrc.dfm.io/' + str(developer_login) + '.json'
                                 scream.log_debug('The osrc url is: ' + osrc_url, True)
                                 # OSRC was grumpy about the urllib2 even with headers attached
                                 # hdr = {'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7',
@@ -336,7 +358,7 @@ with open('results.csv', 'wb') as csv_file:
                                 # req = urllib2.Request(osrc_url, headers=hdr)
                                 # response = urllib2.urlopen(req)
                                 # thus i moved to requests library
-                                proxy = {'http': '184.105.239.95:8080'}
+                                proxy = {'http': '94.154.26.132:8090'}
                                 session_osrc = requests.Session()
                                 requests_osrc = session_osrc.get(osrc_url, proxies=proxy)
                                 data = json.loads(requests_osrc.text)

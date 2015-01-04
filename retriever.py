@@ -31,7 +31,11 @@ import random
 import scream
 import json
 import requests
+import cStringIO
 import subprocess
+import threading
+import codecs
+import time
 from github import Github, UnknownObjectException, GithubException
 # import ElementTree based on the python version
 try:
@@ -44,9 +48,17 @@ except ImportError:
     import _mysql as MSQL
 
 
+version_name = 'Version 1.00 codename: Black duck'
+
 pagination = 10
 NullChar = 'NaN'
 sleepy_head_time = 25
+
+# don't forget to provide api key as first arg of python script
+results_done = 0
+results_all = 8420  # checked manually, hence its later overwritten
+page = 0
+timeout = 50
 
 
 def is_win():
@@ -73,86 +85,137 @@ def freeze(message):
     time.sleep(sleepy_head_time)
 
 
-# don't forget to provide api key as first arg of python script
-results_done = 0
-results_all = 8420  # checked manually, hence its later overwritten
-page = 0
-timeout = 50
+class WriterDialect(csv.Dialect):
+    strict = True
+    skipinitialspace = True
+    quoting = csv.QUOTE_MINIMAL
+    delimiter = ','
+    escapechar = '\\'
+    quotechar = '"'
+    lineterminator = '\n'
 
-conn = MSQL.connect(host="10.4.4.3", port=3306, user=open('mysqlu.dat', 'r').read(), passwd=open('mysqlp.dat', 'r').read(), db="github")
-print 'Testing mySql connection...'
-print 'Pinging database: ' + (str(conn.ping()) if conn.ping() is not None else 'NaN')
-cursor = conn.cursor()
-cursor.execute(r'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = "%s"' % 'github')
-rows = cursor.fetchall()
-print 'There are: ' + str(rows[0][0]) + ' table objects in the local GHtorrent copy'
-cursor.close()
 
-github_clients = list()
-github_clients_ids = list()
-secrets = []
-credential_list = []
+class RepoReaderDialect(csv.Dialect):
+    strict = True
+    skipinitialspace = True
+    quoting = csv.QUOTE_ALL
+    delimiter = ';'
+    escapechar = '\\'
+    quotechar = '"'
+    lineterminator = '\n'
 
-# reading the secrets, the Github factory objects will be created in next paragraph
-with open('pass.txt', 'r') as passfile:
-    line__id = 0
-    for line in passfile:
-        line__id += 1
-        secrets.append(line)
-        if line__id % 4 == 0:
-            login_or_token__ = str(secrets[0]).strip()
-            pass_string = str(secrets[1]).strip()
-            client_id__ = str(secrets[2]).strip()
-            client_secret__ = str(secrets[3]).strip()
-            credential_list.append({'login': login_or_token__, 'pass': pass_string, 'client_id': client_id__, 'client_secret': client_secret__})
-            del secrets[:]
 
-print str(len(credential_list)) + ' full credentials successfully loaded'
+class Stack:
+    def __init__(self):
+        self.__storage = []
 
-openhub_secrets = []
+    def isEmpty(self):
+        return len(self.__storage) == 0
 
-with open('openhub-credentials.txt', 'r') as passfile:
-    for line in passfile:
-        openhub_secrets.append(line)
+    def push(self, p):
+        self.__storage.append(p)
 
-print str(len(openhub_secrets)) + ' openhub credentials successfully loaded'
+    def pop(self):
+        return self.__storage.pop()
 
-# with the credential_list list we create a list of Github objects, github_clients holds ready Github objects
-for credential in credential_list:
-    local_gh = Github(login_or_token=credential['pass'], client_id=credential['client_id'],
-                      client_secret=credential['client_secret'], user_agent=credential['login'],
-                      timeout=timeout)
-    github_clients.append(local_gh)
-    github_clients_ids.append(credential['login'])
-    print local_gh.rate_limiting
 
-print 'How many Github objects in github_clients: ' + str(len(github_clients))
-print 'Assigning current github client to the first object in a list'
+class UTF8Recoder:
+    """
+    Iterator that reads an encoded stream and re-encodes the input to UTF-8
+    """
+    def __init__(self, f, encoding):
+        self.reader = codecs.getreader(encoding)(f)
 
-github_client = github_clients[0]
-lapis = local_gh.get_api_status()
-print 'Current status of GitHub API...: ' + lapis.status + ' (last update: ' + str(lapis.last_updated) + ')'
+    def __iter__(self):
+        return self
 
-with open('results.csv', 'wb') as csv_file:
-    csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
-    sepinfo = ['sep=;']
-    headers = ['ordinal_id', 'github_repo_id', 'repo_full_name', 'repo_html_url', 'repo_forks_count',
-               'repo_stargazers_count', 'repo_created_at', 'repo_is_fork', 'repo_has_issues',
-               'repo_open_issues_count', 'repo_has_wiki', 'repo_network_count',
-               'repo_pushed_at', 'repo_size', 'repo_updated_at', 'wrepo_atchers_count',
-               'project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
-               'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
-               'project_activity_level', 'project_user_count', 'twelve_month_contributor_count', 'total_contributor_count',
-               'twelve_month_commit_count', 'total_commit_count', 'total_code_lines', 'main_language_name']
-    csv_writer.writerow(sepinfo)
-    csv_writer.writerow(headers)
+    def next(self):
+        return self.reader.next().encode("utf-8")
 
-    Github(login_or_token=credential['pass'], client_id=credential['client_id'],
-           client_secret=credential['client_secret'], user_agent=credential['login'], timeout=timeout)
 
-    while (results_done < results_all):
-        # Connect to the Ohloh website and retrieve the account data.
-        page += 1
+class UnicodeReader:
+    """
+    A CSV reader which will iterate over lines in the CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=csv.excel, encoding="utf-8", **kwds):
+        f = UTF8Recoder(f, encoding)
+        self.reader = csv.reader(f, dialect=dialect, **kwds)
+
+    def next(self):
+        row = self.reader.next()
+        return [unicode(s, "utf-8") for s in row]
+
+    def __iter__(self):
+        return self
+
+
+class UnicodeWriter:
+    """
+    A CSV writer which will write rows to CSV file "f",
+    which is encoded in the given encoding.
+    """
+
+    def __init__(self, f, dialect=WriterDialect, encoding="utf-8", **kwds):
+        # Redirect output to a queue
+        self.queue = cStringIO.StringIO()
+        self.writer = csv.writer(self.queue, dialect=dialect, **kwds)
+        self.stream = f
+        self.encoder = codecs.getincrementalencoder(encoding)()
+
+    def writerow(self, row):
+        self.writer.writerow([s.encode("utf-8") for s in row])
+        # Fetch UTF-8 output from the queue ...
+        data = self.queue.getvalue()
+        data = data.decode("utf-8")
+        # ... and reencode it into the target encoding
+        data = self.encoder.encode(data)
+        # write to the target stream
+        self.stream.write(data)
+        # empty queue
+        self.queue.truncate(0)
+
+    def writerows(self, rows):
+        for row in rows:
+            self.writerow(row)
+
+
+class GeneralGetter(threading.Thread):
+
+    finished = False
+    page = None
+
+    def __init__(self, threadId, page):
+        scream.say('Initiating GeneralGetter, running __init__ procedure.')
+        self.threadId = threadId
+        threading.Thread.__init__(self)
+        self.daemon = True
+        self.finished = False
+        self.page = page
+
+    def run(self):
+        scream.cout('GeneralGetter thread(' + str(self.threadId) + ')' + 'starts working on OpenHub page ' + str(self.page))
+        self.finished = False
+        self.get_data(self.page)
+
+    def is_finished(self):
+        return self.finished if self.finished is not None else False
+
+    def set_finished(self, finished):
+        scream.say('Marking the thread ' + str(self.threadId) + ' as finished..')
+        self.finished = finished
+
+    def cleanup(self):
+        scream.say('Marking thread on ' + self.repo.getKey() + ' as finished..')
+        self.finished = True
+        scream.say('Terminating/join() thread on ' + self.repo.getKey() + ' ...')
+        #self.join()
+
+    def get_data(self, page):
+        global results_done
+        global results_all
+
         params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': return_random_openhub_key(),
                                                'sort': 'rating', 'page': page})
         projects_api_url = "https://www.openhub.net/projects.xml?%s" % (params_sort_rating)
@@ -239,7 +302,7 @@ with open('results.csv', 'wb') as csv_file:
 
             # now lets get even more sophisticated details
             params_detailed_url = urllib.urlencode({'api_key': return_random_openhub_key()})
-            project_detailed_url = "https://www.openhub.net/projects/%s.xml?%s" % (project_id, params_sort_rating)
+            project_detailed_url = "https://www.openhub.net/projects/%s.xml?%s" % (project_id, params_detailed_url)  # how come here was a typo ?
 
             detailed_result_flow = urllib.urlopen(project_detailed_url)
 
@@ -314,7 +377,7 @@ with open('results.csv', 'wb') as csv_file:
                     cursor.execute(r'SELECT login FROM project_members INNER JOIN users ON users.id = project_members.user_id WHERE repo_id = %s' % repo_db_id)
                     project_developers = cursor.fetchall()
 
-                    project_developers = [i[0] for i in project_developers] #  unzipping tuples in tuples
+                    project_developers = [i[0] for i in project_developers]  # unzipping tuples in tuples
 
                     contributors_count = len(project_developers)
 
@@ -409,11 +472,109 @@ with open('results.csv', 'wb') as csv_file:
                     # TODO: write here something clever
                     raise
 
-        # Output all the immediate child properties of an Account
-        # for node in elem.find("result/project"):
-        #     if node.tag == "kudo_score":
-        #         print "%s:" % node.tag
-        #         for score in elem.find("result/account/kudo_score"):
-        #             print "\t%s:\t%s" % (score.tag, score.text)
-        #     else:
-        #         print "%s:\t%s" % (node.tag, node.text)
+
+def all_finished(threads):
+    are_finished = True
+    for thread in threads:
+        if not thread.is_finished():
+            return False
+    return are_finished
+
+
+def num_working(threads):
+    are_working = 0
+    for thread in threads:
+        if not thread.is_finished():
+            are_working += 1
+    return are_working
+
+
+if __name__ == "__main__":
+    conn = MSQL.connect(host="10.4.4.3", port=3306, user=open('mysqlu.dat', 'r').read(), passwd=open('mysqlp.dat', 'r').read(), db="github")
+    print 'Testing mySql connection...'
+    print 'Pinging database: ' + (str(conn.ping()) if conn.ping() is not None else 'NaN')
+    cursor = conn.cursor()
+    cursor.execute(r'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = "%s"' % 'github')
+    rows = cursor.fetchall()
+    print 'There are: ' + str(rows[0][0]) + ' table objects in the local GHtorrent copy'
+    cursor.close()
+
+    github_clients = list()
+    github_clients_ids = list()
+    secrets = []
+    credential_list = []
+
+    # reading the secrets, the Github factory objects will be created in next paragraph
+    with open('pass.txt', 'r') as passfile:
+        line__id = 0
+        for line in passfile:
+            line__id += 1
+            secrets.append(line)
+            if line__id % 4 == 0:
+                login_or_token__ = str(secrets[0]).strip()
+                pass_string = str(secrets[1]).strip()
+                client_id__ = str(secrets[2]).strip()
+                client_secret__ = str(secrets[3]).strip()
+                credential_list.append({'login': login_or_token__, 'pass': pass_string, 'client_id': client_id__, 'client_secret': client_secret__})
+                del secrets[:]
+
+    print str(len(credential_list)) + ' full credentials successfully loaded'
+
+    openhub_secrets = []
+
+    with open('openhub-credentials.txt', 'r') as passfile:
+        for line in passfile:
+            openhub_secrets.append(line)
+
+    print str(len(openhub_secrets)) + ' openhub credentials successfully loaded'
+
+    # with the credential_list list we create a list of Github objects, github_clients holds ready Github objects
+    for credential in credential_list:
+        local_gh = Github(login_or_token=credential['pass'], client_id=credential['client_id'],
+                          client_secret=credential['client_secret'], user_agent=credential['login'],
+                          timeout=timeout)
+        github_clients.append(local_gh)
+        github_clients_ids.append(credential['login'])
+        print local_gh.rate_limiting
+
+    print 'How many Github objects in github_clients: ' + str(len(github_clients))
+    print 'Assigning current github client to the first object in a list'
+
+    github_client = github_clients[0]
+    lapis = local_gh.get_api_status()
+    print 'Current status of GitHub API...: ' + lapis.status + ' (last update: ' + str(lapis.last_updated) + ')'
+
+    with open('results.csv', 'wb') as csv_file:
+        threads = []
+        thread_id_count = 0
+
+        csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
+
+        sepinfo = ['sep=;']
+        headers = ['ordinal_id', 'github_repo_id', 'repo_full_name', 'repo_html_url', 'repo_forks_count',
+                   'repo_stargazers_count', 'repo_created_at', 'repo_is_fork', 'repo_has_issues',
+                   'repo_open_issues_count', 'repo_has_wiki', 'repo_network_count',
+                   'repo_pushed_at', 'repo_size', 'repo_updated_at', 'wrepo_atchers_count',
+                   'project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
+                   'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
+                   'project_activity_level', 'project_user_count', 'twelve_month_contributor_count', 'total_contributor_count',
+                   'twelve_month_commit_count', 'total_commit_count', 'total_code_lines', 'main_language_name']
+        csv_writer.writerow(sepinfo)
+        csv_writer.writerow(headers)
+
+        Github(login_or_token=credential['pass'], client_id=credential['client_id'],
+               client_secret=credential['client_secret'], user_agent=credential['login'], timeout=timeout)
+
+        while (results_done < results_all):
+            # Connect to the Ohloh website and retrieve the account data.
+            page += 1
+            gg = GeneralGetter(thread_id_count, page)
+            scream.say('Creating instance of GeneralGetter complete')
+            scream.say('Appending thread to collection of threads')
+            threads.append(gg)
+            scream.say('Append complete, threads[] now have size: ' + str(len(threads)))
+            thread_id_count += 1
+            scream.log_debug('Starting thread ' + str(thread_id_count-1) + '....', True)
+            gg.start()
+            while (num_working(threads) > 9):
+                time.sleep(0.2)  # sleeping for 200 ms - there are already 10 active threads..

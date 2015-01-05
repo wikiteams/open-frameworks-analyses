@@ -36,6 +36,7 @@ import subprocess
 import threading
 import codecs
 import time
+import os
 from github import Github, UnknownObjectException, GithubException
 # import ElementTree based on the python version
 try:
@@ -92,17 +93,17 @@ class WriterDialect(csv.Dialect):
     delimiter = ','
     escapechar = '\\'
     quotechar = '"'
-    lineterminator = '\n'
+    lineterminator = os.linesep
 
 
-class RepoReaderDialect(csv.Dialect):
+class WriterDialectQuoteAll(csv.Dialect):
     strict = True
     skipinitialspace = True
     quoting = csv.QUOTE_ALL
     delimiter = ';'
     escapechar = '\\'
     quotechar = '"'
-    lineterminator = '\n'
+    lineterminator = os.linesep
 
 
 class Stack:
@@ -464,6 +465,26 @@ class GeneralGetter(threading.Thread):
                                 scream.log_debug('Running C program...', True)
                                 self.args___ = ['hist_block.exe' if is_win() else './hist_block'] + [str(x) for x in self.time_of_activity_per_hours]
                                 self.developer_works_period = subprocess.Popen(self.args___, stdout=subprocess.PIPE).stdout.read()
+
+                                # now get count of events for this user....
+                                self.developer_all_pushes = 0
+                                self.developer_all_stars_given = 0
+                                self.developer_all_creations = 0
+                                self.developer_all_issues_created = 0
+                                self.developer_all_pull_requests = 0
+
+                                for self.usage_element in self.data['usage']['events']:
+                                    if (self.usage_element['type'] == "PushEvent"):
+                                        self.developer_all_pushes += self.usage_element['total']
+                                    elif (self.usage_element['type'] == "WatchEvent"):
+                                        self.developer_all_stars_given += self.usage_element['total']
+                                    elif (self.usage_element['type'] == "CreateEvent"):
+                                        self.developer_all_creations += self.usage_element['total']
+                                    elif (self.usage_element['type'] == "IssuesEvent"):
+                                        self.developer_all_issues_created += self.usage_element['total']
+                                    elif (self.usage_element['type'] == "PullRequestEvent"):
+                                        self.developer_all_pull_requests += self.usage_element['total']
+
                                 # -----------------------------------------------------------------------
                                 scream.log_debug('Finished analyze OSRC card for user: ' + str(self.developer_login), True)
                                 break
@@ -486,7 +507,9 @@ class GeneralGetter(threading.Thread):
                                            self.project_updated_at, self.project_homepage_url, self.project_average_rating, self.project_rating_count, self.project_review_count,
                                            self.project_activity_level, self.project_user_count, self.twelve_month_contributor_count, self.total_contributor_count,
                                            self.twelve_month_commit_count, self.total_commit_count, self.total_code_lines, self.main_language_name,
-                                           self.developer_works_during_bd, self.developer_works_period]
+                                           self.developer_works_during_bd, self.developer_works_period,
+                                           self.developer_all_pushes, self.developer_all_stars_given, self.developer_all_creations,
+                                           self.developer_all_issues_created, self.developer_all_pull_requests]
 
                         csv_writer.writerow(self.collection)
                         #self.set_finished(True)
@@ -581,7 +604,7 @@ if __name__ == "__main__":
         threads = []
         thread_id_count = 0
 
-        csv_writer = csv.writer(csv_file, delimiter=';', quotechar='\"', quoting=csv.QUOTE_ALL)
+        csv_writer = UnicodeWriter(csv_file, dialect=WriterDialectQuoteAll)
 
         sepinfo = ['sep=;']
         headers = ['ordinal_id', 'github_repo_id', 'repo_full_name', 'repo_html_url', 'repo_forks_count',
@@ -592,7 +615,9 @@ if __name__ == "__main__":
                    'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
                    'project_activity_level', 'project_user_count', 'twelve_month_contributor_count', 'total_contributor_count',
                    'twelve_month_commit_count', 'total_commit_count', 'total_code_lines', 'main_language_name',
-                   'developer_works_during_bd', 'developer_works_period']
+                   'developer_works_during_bd', 'developer_works_period',
+                   'developer_all_pushes', 'developer_all_stars_given', 'developer_all_creations',
+                   'developer_all_issues_created', 'developer_all_pull_requests']
         csv_writer.writerow(sepinfo)
         csv_writer.writerow(headers)
 

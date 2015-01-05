@@ -210,10 +210,13 @@ class GeneralGetter(threading.Thread):
         self.finished = finished
 
     def cleanup(self):
-        scream.say('Marking thread on ' + self.repo.getKey() + ' as finished..')
+        scream.say('Marking thread on ' + str(self.threadId) + "/" + str(self.page) + ' as definitly finished..')
         self.finished = True
-        self.conn.close()
-        scream.say('Terminating/join() thread on ' + self.repo.getKey() + ' ...')
+        try:
+            self.conn.close()
+        except:
+            scream.log('MySQL connection instance already closed. Ok.')
+        scream.say('Terminating/join() thread on ' + str(self.threadId) + ' ...')
         #self.join()
 
     def get_data(self, page, conn):
@@ -486,13 +489,14 @@ class GeneralGetter(threading.Thread):
                                            self.developer_works_during_bd, self.developer_works_period]
 
                         csv_writer.writerow(self.collection)
-                        self.set_finished(True)
+                        #self.set_finished(True)
                         print '.'
                 except UnknownObjectException:
                     print 'Repo ' + self.gh_entity + ' is not available anymore..'
                 except GithubException:
                     # TODO: write here something clever
                     raise
+        self.set_finished(True)
 
 
 def all_finished(threads):
@@ -508,6 +512,8 @@ def num_working(threads):
     for thread in threads:
         if not thread.is_finished():
             are_working += 1
+        else:
+            thread.cleanup()
     return are_working
 
 
@@ -604,5 +610,5 @@ if __name__ == "__main__":
             thread_id_count += 1
             scream.log_debug('Starting thread ' + str(thread_id_count-1) + '....', True)
             gg.start()
-            while (num_working(threads) > 9):
-                time.sleep(0.2)  # sleeping for 200 ms - there are already 10 active threads..
+            while (num_working(threads) > 7):
+                time.sleep(0.2)  # sleeping for 200 ms - there are already 8 active threads..

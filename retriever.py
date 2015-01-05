@@ -57,7 +57,7 @@ sleepy_head_time = 25
 # don't forget to provide api key as first arg of python script
 results_done = 0
 results_all = 8420  # checked manually, hence its later overwritten
-page = 0
+# page = 0
 timeout = 50
 
 
@@ -185,6 +185,7 @@ class GeneralGetter(threading.Thread):
 
     finished = False
     page = None
+    conn = None
 
     def __init__(self, threadId, page):
         scream.say('Initiating GeneralGetter, running __init__ procedure.')
@@ -193,11 +194,13 @@ class GeneralGetter(threading.Thread):
         self.daemon = True
         self.finished = False
         self.page = page
+        self.conn = MSQL.connect(host="10.4.4.3", port=3306, user=open('mysqlu.dat', 'r').read(),
+                                 passwd=open('mysqlp.dat', 'r').read(), db="github", connect_timeout=50000000)
 
     def run(self):
         scream.cout('GeneralGetter thread(' + str(self.threadId) + ')' + 'starts working on OpenHub page ' + str(self.page))
         self.finished = False
-        self.get_data(self.page)
+        self.get_data(self.page, self.conn)
 
     def is_finished(self):
         return self.finished if self.finished is not None else False
@@ -209,148 +212,150 @@ class GeneralGetter(threading.Thread):
     def cleanup(self):
         scream.say('Marking thread on ' + self.repo.getKey() + ' as finished..')
         self.finished = True
+        self.conn.close()
         scream.say('Terminating/join() thread on ' + self.repo.getKey() + ' ...')
         #self.join()
 
-    def get_data(self, page):
+    def get_data(self, page, conn):
         global results_done
         global results_all
+        global pagination
 
-        params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': return_random_openhub_key(),
-                                               'sort': 'rating', 'page': page})
-        projects_api_url = "https://www.openhub.net/projects.xml?%s" % (params_sort_rating)
+        self.params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': return_random_openhub_key(),
+                                                    'sort': 'rating', 'page': page})
+        self.projects_api_url = "https://www.openhub.net/projects.xml?%s" % (self.params_sort_rating)
 
-        result_flow = urllib.urlopen(projects_api_url)
+        self.result_flow = urllib.urlopen(self.projects_api_url)
 
-        print ''
-        print '-------------------------- PAGE ' + str(page) + ' parsed -----------------------------'
-        print ''
+        scream.say('')
+        scream.say('-------------------------- PAGE ' + str(page) + ' parsed -----------------------------')
+        scream.say('')
 
         # Parse the response into a structured XML object
-        tree = ET.parse(result_flow)
+        self.tree = ET.parse(self.result_flow)
 
         # Did Ohloh return an error?
-        elem = tree.getroot()
-        error = elem.find("error")
-        if error is not None:
-            print 'OpenHub returned:', ET.tostring(error),
+        self.elem = self.tree.getroot()
+        self.error = self.elem.find("error")
+        if self.error is not None:
+            print 'OpenHub returned ERROR:', ET.tostring(self.error),
             sys.exit()
 
-        results_done += int(elem.find("items_returned").text)
-        results_all = int(elem.find("items_available").text)
+        results_done += int(self.elem.find("items_returned").text)
+        results_all = int(self.elem.find("items_available").text)
 
-        i = 0
-        for node in elem.findall("result/project"):
-            i += 1
-            print 'Checking element ' + str(i) + '/' + str(pagination)
+        self.i = 0
+        for self.node in self.elem.findall("result/project"):
+            self.i += 1
+            scream.say('Checking element ' + str(self.i) + '/' + str(pagination))
 
-            project_id = node.find("id").text
-            project_name = node.find("name").text
-            project_url = node.find("url").text
-            project_htmlurl = node.find("html_url").text
-            project_created_at = node.find("created_at").text
-            project_updated_at = node.find("updated_at").text
-            project_homepage_url = node.find("homepage_url").text
+            self.project_id = self.node.find("id").text
+            self.project_name = self.node.find("name").text
+            self.project_url = self.node.find("url").text
+            self.project_htmlurl = self.node.find("html_url").text
+            self.project_created_at = self.node.find("created_at").text
+            self.project_updated_at = self.node.find("updated_at").text
+            self.project_homepage_url = self.node.find("homepage_url").text
 
-            project_average_rating = node.find("average_rating").text
-            project_rating_count = node.find("rating_count").text
-            project_review_count = node.find("review_count").text
+            self.project_average_rating = self.node.find("average_rating").text
+            self.project_rating_count = self.node.find("rating_count").text
+            self.project_review_count = self.node.find("review_count").text
 
-            project_activity_level = node.find("project_activity_index/value").text
+            self.project_activity_level = self.node.find("project_activity_index/value").text
 
-            project_user_count = node.find("user_count").text
+            self.project_user_count = self.node.find("user_count").text
 
             # project may have multiple GitHub repositories
             # or even it may be not present on GitHub - check that
 
-            is_github_project = False
-            github_repo_id = None
+            self.is_github_project = False
+            self.github_repo_id = None
 
             # in case of multiple github CODE repositories (quite often)
             # treat as a seperate repo - remember, we focus on github repositories, not aggregates
 
-            enlistments_detailed_params = urllib.urlencode({'api_key': return_random_openhub_key()})
-            enlistments_detailed_url = "https://www.openhub.net/projects/%s/enlistments.xml?%s" % (project_id, enlistments_detailed_params)
+            self.enlistments_detailed_params = urllib.urlencode({'api_key': return_random_openhub_key()})
+            self.enlistments_detailed_url = "https://www.openhub.net/projects/%s/enlistments.xml?%s" % (self.project_id, self.enlistments_detailed_params)
 
-            enlistments_result_flow = urllib.urlopen(enlistments_detailed_url)
+            self.enlistments_result_flow = urllib.urlopen(self.enlistments_detailed_url)
 
             # Parse the response into a structured XML object
-            enlistments_tree = ET.parse(enlistments_result_flow)
+            self.enlistments_tree = ET.parse(self.enlistments_result_flow)
 
             # Did Ohloh return an error?
-            enlistments_elem = enlistments_tree.getroot()
-            enlistments_error = enlistments_elem.find("error")
-            if enlistments_error is not None:
-                print 'Ohloh returned:', ET.tostring(enlistments_error),
+            self.enlistments_elem = self.enlistments_tree.getroot()
+            self.enlistments_error = self.enlistments_elem.find("error")
+            if self.enlistments_error is not None:
+                print 'Ohloh returned:', ET.tostring(self.enlistments_error),
                 sys.exit()
 
-            repos_lists = list()
+            self.repos_lists = list()
 
-            for enlistment_node in enlistments_elem.findall("result/enlistment"):
-                ee_type = enlistment_node.find("repository/type").text
-                if (ee_type == "GitRepository"):
-                    ee_link = enlistment_node.find("repository/url").text
-                    if (ee_link.startswith("git://github.com/")):
-                        print 'Is a GitHub project!'
-                        is_github_project = True
-                        github_repo_id = ee_link.split("git://github.com/")[1].split(".git")[0]
-                        print github_repo_id
-                        repos_lists.append(github_repo_id)
+            for self.enlistment_node in self.enlistments_elem.findall("result/enlistment"):
+                self.ee_type = self.enlistment_node.find("repository/type").text
+                if (self.ee_type == "GitRepository"):
+                    self.ee_link = self.enlistment_node.find("repository/url").text
+                    if (self.ee_link.startswith("git://github.com/")):
+                        scream.say('Is a GitHub project!')
+                        self.is_github_project = True
+                        self.github_repo_id = self.ee_link.split("git://github.com/")[1].split(".git")[0]
+                        scream.say(self.github_repo_id)
+                        self.repos_lists.append(self.github_repo_id)
 
-            if not is_github_project:
+            if not self.is_github_project:
                 continue
 
             # now lets get even more sophisticated details
-            params_detailed_url = urllib.urlencode({'api_key': return_random_openhub_key()})
-            project_detailed_url = "https://www.openhub.net/projects/%s.xml?%s" % (project_id, params_detailed_url)  # how come here was a typo ?
+            self.params_detailed_url = urllib.urlencode({'api_key': return_random_openhub_key()})
+            self.project_detailed_url = "https://www.openhub.net/projects/%s.xml?%s" % (self.project_id, self.params_detailed_url)  # how come here was a typo ?
 
-            detailed_result_flow = urllib.urlopen(project_detailed_url)
+            self.detailed_result_flow = urllib.urlopen(self.project_detailed_url)
 
             # Parse the response into a structured XML object
-            detailed_tree = ET.parse(detailed_result_flow)
+            self.detailed_tree = ET.parse(self.detailed_result_flow)
 
             # Did Ohloh return an error?
-            detailed_elem = detailed_tree.getroot()
-            detailed_error = detailed_elem.find("error")
-            if detailed_error is not None:
-                print 'Ohloh returned:', ET.tostring(detailed_error),
+            self.detailed_elem = self.detailed_tree.getroot()
+            self.detailed_error = self.detailed_elem.find("error")
+            if self.detailed_error is not None:
+                print 'Ohloh returned:', ET.tostring(self.detailed_error),
                 sys.exit()
 
-            twelve_month_contributor_count = detailed_elem.find("result/project/analysis/twelve_month_contributor_count").text
-            total_contributor_count = detailed_elem.find("result/project/analysis/total_contributor_count").text
-            twelve_month_commit_count = detailed_elem.find("result/project/analysis/twelve_month_commit_count")
-            twelve_month_commit_count = twelve_month_commit_count.text if twelve_month_commit_count is not None else NullChar
-            total_commit_count = detailed_elem.find("result/project/analysis/total_commit_count")
-            total_commit_count = total_commit_count.text if total_commit_count is not None else NullChar
-            total_code_lines = detailed_elem.find("result/project/analysis/total_code_lines")
-            total_code_lines = total_code_lines.text if total_code_lines is not None else NullChar
-            main_language_name = detailed_elem.find("result/project/analysis/main_language_name")
-            main_language_name = main_language_name.text if main_language_name is not None else NullChar
+            self.twelve_month_contributor_count = self.detailed_elem.find("result/project/analysis/twelve_month_contributor_count").text
+            self.total_contributor_count = self.detailed_elem.find("result/project/analysis/total_contributor_count").text
+            self.twelve_month_commit_count = self.detailed_elem.find("result/project/analysis/twelve_month_commit_count")
+            self.twelve_month_commit_count = self.twelve_month_commit_count.text if self.twelve_month_commit_count is not None else NullChar
+            self.total_commit_count = self.detailed_elem.find("result/project/analysis/total_commit_count")
+            self.total_commit_count = self.total_commit_count.text if self.total_commit_count is not None else NullChar
+            self.total_code_lines = self.detailed_elem.find("result/project/analysis/total_code_lines")
+            self.total_code_lines = self.total_code_lines.text if self.total_code_lines is not None else NullChar
+            self.main_language_name = self.detailed_elem.find("result/project/analysis/main_language_name")
+            self.main_language_name = self.main_language_name.text if self.main_language_name is not None else NullChar
 
-            current_ghc = github_clients[num_modulo(i-1)]
-            current_ghc_desc = github_clients_ids[num_modulo(i-1)]
+            self.current_ghc = github_clients[num_modulo(self.i-1)]
+            self.current_ghc_desc = github_clients_ids[num_modulo(self.i-1)]
 
-            print 'Now using github client id: ' + str(current_ghc_desc)
+            print 'Now using github client id: ' + str(self.current_ghc_desc)
 
-            for gh_entity in repos_lists:
+            for self.gh_entity in self.repos_lists:
 
                 try:
-                    repository = current_ghc.get_repo(gh_entity)
-                    repo_name = repository.name
-                    repo_full_name = repository.full_name
-                    repo_html_url = repository.html_url
-                    repo_stargazers_count = repository.stargazers_count
-                    repo_forks_count = repository.forks_count
-                    repo_created_at = repository.created_at
-                    repo_is_fork = repository.fork
-                    repo_has_issues = repository.has_issues
-                    repo_open_issues_count = repository.open_issues_count
-                    repo_has_wiki = repository.has_wiki
-                    repo_network_count = repository.network_count
-                    repo_pushed_at = repository.pushed_at
-                    repo_size = repository.size
-                    repo_updated_at = repository.updated_at
-                    repo_watchers_count = repository.watchers_count
+                    self.repository = self.current_ghc.get_repo(self.gh_entity)
+                    self.repo_name = self.repository.name
+                    self.repo_full_name = self.repository.full_name
+                    self.repo_html_url = self.repository.html_url
+                    self.repo_stargazers_count = self.repository.stargazers_count
+                    self.repo_forks_count = self.repository.forks_count
+                    self.repo_created_at = self.repository.created_at
+                    self.repo_is_fork = self.repository.fork
+                    self.repo_has_issues = self.repository.has_issues
+                    self.repo_open_issues_count = self.repository.open_issues_count
+                    self.repo_has_wiki = self.repository.has_wiki
+                    self.repo_network_count = self.repository.network_count
+                    self.repo_pushed_at = self.repository.pushed_at
+                    self.repo_size = self.repository.size
+                    self.repo_updated_at = self.repository.updated_at
+                    self.repo_watchers_count = self.repository.watchers_count
 
                     # Now its time to get the list of developers!
 
@@ -359,58 +364,69 @@ class GeneralGetter(threading.Thread):
                     # make sure your local win machine runs it..
                     # just pjatk things.. carry on
 
-                    print 'Retrieving the project id from mysql database.. should take max 1 second.'
+                    scream.say('Retrieving the project id from mysql database.. should take max 1 second.')
 
                     # Get here project id used in the database !
-                    cursor = conn.cursor()
-                    cursor.execute(r'select distinct id from (select * from projects where `name`="{0}") as p where url like "%{1}"'.format(repo_name, repo_full_name))
-                    rows = cursor.fetchall()
+                    #conn.ping(True)
+                    self.cursor = conn.cursor()
+                    self.cursor.execute(r'select distinct id from (select * from projects where `name`="{0}") as p where url like "%{1}"'.format(self.repo_name, self.repo_full_name))
+                    self.rows = self.cursor.fetchall()
 
-                    repo_db_id = rows[0]
+                    try:
+                        self.repo_db_id = self.rows[0]
+                    except:
+                        #print str(cursor.info())
+                        # this is too new repo , because it is not found on mysql db, skip it !
+                        continue
+                        #print 'Faulty query was: -------- '
+                        #print r'select distinct id from (select * from projects where `name`="{0}") as p where url like "%{1}"'.format(self.repo_name, self.repo_full_name)
 
-                    print 'project id retrieved from database is: ' + str()
+                    scream.say('project id retrieved from database is: ' + str(self.repo_db_id))
 
-                    cursor.close()
+                    self.cursor.close()
 
-                    cursor = conn.cursor()
+                    #conn.ping(True)
+                    self.cursor = conn.cursor()
                     # Now get list of GitHub logins which are project_members !
-                    cursor.execute(r'SELECT login FROM project_members INNER JOIN users ON users.id = project_members.user_id WHERE repo_id = %s' % repo_db_id)
-                    project_developers = cursor.fetchall()
+                    self.cursor.execute(r'SELECT login FROM project_members INNER JOIN users ON users.id = project_members.user_id WHERE repo_id = %s' % self.repo_db_id)
+                    self.project_developers = self.cursor.fetchall()
 
-                    project_developers = [i[0] for i in project_developers]  # unzipping tuples in tuples
+                    self.project_developers = [i[0] for i in self.project_developers]  # unzipping tuples in tuples
+                    self.contributors_count = len(self.project_developers)
 
-                    contributors_count = len(project_developers)
+                    self.cursor.close()
+                    #conn.close()
 
-                    for project_developer in project_developers:
+                    for self.project_developer in self.project_developers:
 
                         # create a GitHub user named object for GitHub API
-                        current_user = current_ghc.get_user(project_developer)
+                        self.current_user = self.current_ghc.get_user(self.project_developer)
 
-                        current_user_bio = current_user.bio
-                        current_user_blog = current_user.blog
-                        current_user_collaborators = current_user.collaborators
-                        current_user_company = current_user.company
-                        current_user_contributions = current_user.contributions
-                        current_user_created_at = current_user.created_at
-                        current_user_followers = current_user.followers
-                        current_user_following = current_user.following
+                        self.current_user_bio = self.current_user.bio
+                        self.current_user_blog = self.current_user.blog
+                        self.current_user_collaborators = self.current_user.collaborators
+                        self.current_user_company = self.current_user.company
+                        self.current_user_contributions = self.current_user.contributions
+                        self.current_user_created_at = self.current_user.created_at
+                        self.current_user_followers = self.current_user.followers
+                        self.current_user_following = self.current_user.following
 
-                        current_user_hireable = current_user.hireable
-                        current_user_login = current_user.login
-                        current_user_name = current_user.name
+                        self.current_user_hireable = self.current_user.hireable
+                        self.current_user_login = self.current_user.login
+                        self.current_user_name = self.current_user.name
 
-                        developer_login = project_developer
+                        self.developer_login = self.project_developer
 
                         # Does he commit during business hours?
-                        scream.log_debug("Starting to analyze OSRC card for user: " + str(developer_login), True)
-                        developer_works_during_bd = None
-                        developer_works_period = None
-                        tries = 5
+                        scream.log_debug("Starting to analyze OSRC card for user: " + str(self.developer_login), True)
+                        self.developer_works_during_bd = None
+                        self.developer_works_period = None
+                        self.tries = 5
 
                         while True:
                             try:
-                                osrc_url = 'https://osrc.dfm.io/' + str(developer_login) + '.json'
-                                scream.log_debug('The osrc url is: ' + osrc_url, True)
+                                self.osrc_url = 'https://osrc.dfm.io/' + str(self.developer_login) + '.json'
+                                scream.log_debug('The osrc url is: ' + self.osrc_url, True)
                                 # OSRC was grumpy about the urllib2 even with headers attached
                                 # hdr = {'User-Agent': 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7',
                                 #        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -421,53 +437,53 @@ class GeneralGetter(threading.Thread):
                                 # req = urllib2.Request(osrc_url, headers=hdr)
                                 # response = urllib2.urlopen(req)
                                 # thus i moved to requests library
-                                proxy = {'http': '94.154.26.132:8090'}
-                                session_osrc = requests.Session()
-                                requests_osrc = session_osrc.get(osrc_url, proxies=proxy)
-                                data = json.loads(requests_osrc.text)
-                                time_of_activity_per_hours = [0 for i in xrange(24)]
-                                for day_entry_element in data['usage']['events']:
-                                    for day___ in day_entry_element['day']:
-                                        time_of_activity_per_hours[day_entry_element['day'].index(day___)] += parse_number(day___)
-                                scream.log_debug("Histogram for hours for user: " + str(developer_login) + ' created..', True)
+                                self.proxy = {'http': '94.154.26.132:8090'}
+                                self.session_osrc = requests.Session()
+                                self.requests_osrc = self.session_osrc.get(self.osrc_url, proxies=self.proxy)
+                                self.data = json.loads(self.requests_osrc.text)
+                                self.time_of_activity_per_hours = [0 for z in xrange(24)]
+                                for self.day_entry_element in self.data['usage']['events']:
+                                    for self.day___ in self.day_entry_element['day']:
+                                        self.time_of_activity_per_hours[self.day_entry_element['day'].index(self.day___)] += parse_number(self.day___)
+                                scream.log_debug("Histogram for hours for user: " + str(self.developer_login) + ' created..', True)
                                 # count activity during business day
-                                count_bd__ = 0
-                                count_bd__ += sum(time_of_activity_per_hours[i] for i in range(9, 18))
+                                self.count_bd__ = 0
+                                self.count_bd__ += sum(self.time_of_activity_per_hours[z] for z in range(9, 18))
                                 # now count activity during not-busines hours :)
-                                count_nwh__ = 0
-                                count_nwh__ += sum(time_of_activity_per_hours[i] for i in range(0, 9))
-                                count_nwh__ += sum(time_of_activity_per_hours[i] for i in range(18, 24))
-                                developer_works_during_bd = True if count_bd__ >= count_nwh__ else False
+                                self.count_nwh__ = 0
+                                self.count_nwh__ += sum(self.time_of_activity_per_hours[z] for z in range(0, 9))
+                                self.count_nwh__ += sum(self.time_of_activity_per_hours[z] for z in range(18, 24))
+                                self.developer_works_during_bd = True if self.count_bd__ >= self.count_nwh__ else False
                                 scream.log_debug('Running C program...', True)
-                                args___ = ['hist_block.exe' if is_win() else './hist_block'] + [str(x) for x in time_of_activity_per_hours]
-                                developer_works_period = subprocess.Popen(args___, stdout=subprocess.PIPE).stdout.read()
+                                self.args___ = ['hist_block.exe' if is_win() else './hist_block'] + [str(x) for x in self.time_of_activity_per_hours]
+                                self.developer_works_period = subprocess.Popen(self.args___, stdout=subprocess.PIPE).stdout.read()
                                 # -----------------------------------------------------------------------
-                                scream.log_debug('Finished analyze OSRC card for user: ' + str(developer_login), True)
+                                scream.log_debug('Finished analyze OSRC card for user: ' + str(self.developer_login), True)
                                 break
                             except Exception as e:
                                 scream.log_error(str(e), True)
                                 freeze('OSRC gave error, probably 404')
-                                scream.say('try ' + str(tries) + ' more times')
-                                tries -= 1
+                                scream.say('try ' + str(self.tries) + ' more times')
+                                self.tries -= 1
                             finally:
-                                if tries < 1:
-                                    developer_works_during_bd = 0
-                                    developer_works_period = 0
+                                if self.tries < 1:
+                                    self.developer_works_during_bd = 0
+                                    self.developer_works_period = 0
                                     break
 
-                        collection = [str(((page-1)*pagination) + i), gh_entity, repo_full_name, repo_html_url, str(repo_forks_count),
-                                      str(repo_stargazers_count), str(contributors_count),
-                                      repo_created_at, repo_is_fork, repo_has_issues, repo_open_issues_count,
-                                      repo_has_wiki, repo_network_count, repo_pushed_at, repo_size, repo_updated_at, repo_watchers_count,
-                                      project_id, project_name, project_url, project_htmlurl, project_created_at,
-                                      project_updated_at, project_homepage_url, project_average_rating, project_rating_count, project_review_count,
-                                      project_activity_level, project_user_count, twelve_month_contributor_count, total_contributor_count,
-                                      twelve_month_commit_count, total_commit_count, total_code_lines, main_language_name]
+                        self.collection = [str(((page-1)*pagination) + self.i), self.gh_entity, self.repo_full_name, self.repo_html_url, str(self.repo_forks_count),
+                                           str(self.repo_stargazers_count), str(self.contributors_count),
+                                           self.repo_created_at, self.repo_is_fork, self.repo_has_issues, self.repo_open_issues_count,
+                                           self.repo_has_wiki, self.repo_network_count, self.repo_pushed_at, self.repo_size, self.repo_updated_at, self.repo_watchers_count,
+                                           self.project_id, self.project_name, self.project_url, self.project_htmlurl, self.project_created_at,
+                                           self.project_updated_at, self.project_homepage_url, self.project_average_rating, self.project_rating_count, self.project_review_count,
+                                           self.project_activity_level, self.project_user_count, self.twelve_month_contributor_count, self.total_contributor_count,
+                                           self.twelve_month_commit_count, self.total_commit_count, self.total_code_lines, self.main_language_name]
 
-                        csv_writer.writerow(collection)
+                        csv_writer.writerow(self.collection)
                         print '.'
                 except UnknownObjectException:
-                    print 'Repo ' + gh_entity + ' is not available anymore..'
+                    print 'Repo ' + self.gh_entity + ' is not available anymore..'
                 except GithubException:
                     # TODO: write here something clever
                     raise
@@ -490,19 +506,24 @@ def num_working(threads):
 
 
 if __name__ == "__main__":
-    conn = MSQL.connect(host="10.4.4.3", port=3306, user=open('mysqlu.dat', 'r').read(), passwd=open('mysqlp.dat', 'r').read(), db="github")
+    first_conn = MSQL.connect(host="10.4.4.3", port=3306, user=open('mysqlu.dat', 'r').read(),
+                              passwd=open('mysqlp.dat', 'r').read(), db="github", connect_timeout=50000000)
     print 'Testing mySql connection...'
-    print 'Pinging database: ' + (str(conn.ping()) if conn.ping() is not None else 'NaN')
-    cursor = conn.cursor()
+    print 'Pinging database: ' + (str(first_conn.ping(True)) if first_conn.ping(True) is not None else 'NaN')
+    cursor = first_conn.cursor()
     cursor.execute(r'SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = "%s"' % 'github')
     rows = cursor.fetchall()
     print 'There are: ' + str(rows[0][0]) + ' table objects in the local GHtorrent copy'
     cursor.close()
+    first_conn.close()
+    #conn.ping(True)
 
     github_clients = list()
     github_clients_ids = list()
     secrets = []
     credential_list = []
+
+    page = 0
 
     # reading the secrets, the Github factory objects will be created in next paragraph
     with open('pass.txt', 'r') as passfile:

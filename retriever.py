@@ -419,8 +419,8 @@ class GeneralGetter(threading.Thread):
 
                         # Does he commit during business hours?
                         scream.log_debug("Starting to analyze OSRC card for user: " + str(self.developer_login), True)
-                        self.developer_works_during_bd = None
-                        self.developer_works_period = None
+                        self.developer_works_during_bd = 0
+                        self.developer_works_period = 0
                         self.tries = 5
 
                         while True:
@@ -441,6 +441,10 @@ class GeneralGetter(threading.Thread):
                                 self.session_osrc = requests.Session()
                                 self.requests_osrc = self.session_osrc.get(self.osrc_url, proxies=self.proxy)
                                 self.data = json.loads(self.requests_osrc.text)
+                                self.not_enough_information = True if ('message' in self.data) and (self.data['message'].startswith('Not enough information for')) else False
+                                if (self.not_enough_information):
+                                    # could be user deleted, or non-contributing but told to be member.. break and assign 0 values
+                                    break
                                 self.time_of_activity_per_hours = [0 for z in xrange(24)]
                                 for self.day_entry_element in self.data['usage']['events']:
                                     for self.day___ in self.day_entry_element['day']:
@@ -478,9 +482,11 @@ class GeneralGetter(threading.Thread):
                                            self.project_id, self.project_name, self.project_url, self.project_htmlurl, self.project_created_at,
                                            self.project_updated_at, self.project_homepage_url, self.project_average_rating, self.project_rating_count, self.project_review_count,
                                            self.project_activity_level, self.project_user_count, self.twelve_month_contributor_count, self.total_contributor_count,
-                                           self.twelve_month_commit_count, self.total_commit_count, self.total_code_lines, self.main_language_name]
+                                           self.twelve_month_commit_count, self.total_commit_count, self.total_code_lines, self.main_language_name,
+                                           self.developer_works_during_bd, self.developer_works_period]
 
                         csv_writer.writerow(self.collection)
+                        self.set_finished(True)
                         print '.'
                 except UnknownObjectException:
                     print 'Repo ' + self.gh_entity + ' is not available anymore..'
@@ -579,7 +585,8 @@ if __name__ == "__main__":
                    'project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
                    'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
                    'project_activity_level', 'project_user_count', 'twelve_month_contributor_count', 'total_contributor_count',
-                   'twelve_month_commit_count', 'total_commit_count', 'total_code_lines', 'main_language_name']
+                   'twelve_month_commit_count', 'total_commit_count', 'total_code_lines', 'main_language_name',
+                   'developer_works_during_bd', 'developer_works_period']
         csv_writer.writerow(sepinfo)
         csv_writer.writerow(headers)
 

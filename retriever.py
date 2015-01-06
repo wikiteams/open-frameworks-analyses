@@ -425,6 +425,12 @@ class GeneralGetter(threading.Thread):
                         scream.log_debug("Starting to analyze OSRC card for user: " + str(self.developer_login), True)
                         self.developer_works_during_bd = None
                         self.developer_works_period = 0
+                        self.developer_all_pushes = 0
+                        self.developer_all_stars_given = 0
+                        self.developer_all_creations = 0
+                        self.developer_all_issues_created = 0
+                        self.developer_all_pull_requests = 0
+                                
                         self.tries = 5
 
                         while True:
@@ -467,11 +473,6 @@ class GeneralGetter(threading.Thread):
                                 self.developer_works_period = subprocess.Popen(self.args___, stdout=subprocess.PIPE).stdout.read()
 
                                 # now get count of events for this user....
-                                self.developer_all_pushes = 0
-                                self.developer_all_stars_given = 0
-                                self.developer_all_creations = 0
-                                self.developer_all_issues_created = 0
-                                self.developer_all_pull_requests = 0
 
                                 for self.usage_element in self.data['usage']['events']:
                                     if (self.usage_element['type'] == "PushEvent"):

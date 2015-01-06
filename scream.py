@@ -31,7 +31,8 @@ def progress_bar(current, left):
     with open('progress_bar.lock', 'w') as lockfile:
         portalocker.lock(lockfile, portalocker.LOCK_EX)
         progress = 1600 * (current/left)
-        lockfile.write('[{0}] {1}%'.format('#' * (progress / 40), progress * 1600 * 100))
+        lockfile.write('[{0}] {1}%'.format('#' * (progress / 40),
+                                           progress * 1600 * 100))
         portalocker.unlock(lockfile)
 
 

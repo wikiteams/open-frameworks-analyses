@@ -423,7 +423,7 @@ class GeneralGetter(threading.Thread):
 
                         # Does he commit during business hours?
                         scream.log_debug("Starting to analyze OSRC card for user: " + str(self.developer_login), True)
-                        self.developer_works_during_bd = 0
+                        self.developer_works_during_bd = None
                         self.developer_works_period = 0
                         self.tries = 5
 
@@ -495,21 +495,23 @@ class GeneralGetter(threading.Thread):
                                 self.tries -= 1
                             finally:
                                 if self.tries < 1:
-                                    self.developer_works_during_bd = 0
+                                    self.developer_works_during_bd = None
                                     self.developer_works_period = 0
                                     break
 
-                        self.collection = [str(((page-1)*pagination) + self.i), self.gh_entity, self.repo_full_name, self.repo_html_url, str(self.repo_forks_count),
-                                           str(self.repo_stargazers_count), str(self.contributors_count),
-                                           self.repo_created_at, self.repo_is_fork, self.repo_has_issues, self.repo_open_issues_count,
-                                           self.repo_has_wiki, self.repo_network_count, self.repo_pushed_at, self.repo_size, self.repo_updated_at, self.repo_watchers_count,
-                                           self.project_id, self.project_name, self.project_url, self.project_htmlurl, self.project_created_at,
-                                           self.project_updated_at, self.project_homepage_url, self.project_average_rating, self.project_rating_count, self.project_review_count,
-                                           self.project_activity_level, self.project_user_count, self.twelve_month_contributor_count, self.total_contributor_count,
-                                           self.twelve_month_commit_count, self.total_commit_count, self.total_code_lines, self.main_language_name,
-                                           self.developer_works_during_bd, self.developer_works_period,
-                                           self.developer_all_pushes, self.developer_all_stars_given, self.developer_all_creations,
-                                           self.developer_all_issues_created, self.developer_all_pull_requests]
+                        self.collection = [str(((page-1)*pagination) + self.i), self.gh_entity, self.repo_full_name, self.repo_html_url,
+                                           str(self.repo_forks_count), str(self.repo_stargazers_count), str(self.contributors_count),
+                                           str(self.repo_created_at), str(self.repo_is_fork), str(self.repo_has_issues), str(self.repo_open_issues_count),
+                                           str(self.repo_has_wiki), str(self.repo_network_count), str(self.repo_pushed_at), str(self.repo_size), 
+                                           str(self.repo_updated_at), str(self.repo_watchers_count), self.project_id,
+                                           self.project_name, self.project_url, self.project_htmlurl, str(self.project_created_at),
+                                           str(self.project_updated_at), self.project_homepage_url, str(self.project_average_rating), 
+                                           str(self.project_rating_count), str(self.project_review_count), self.project_activity_level,
+                                           str(self.project_user_count), str(self.twelve_month_contributor_count), str(self.total_contributor_count),
+                                           str(self.twelve_month_commit_count), str(self.total_commit_count), str(self.total_code_lines), 
+                                           self.main_language_name, str(self.developer_works_during_bd), str(self.developer_works_period),
+                                           str(self.developer_all_pushes), str(self.developer_all_stars_given), str(self.developer_all_creations),
+                                           str(self.developer_all_issues_created), str(self.developer_all_pull_requests)]
 
                         csv_writer.writerow(self.collection)
                         #self.set_finished(True)

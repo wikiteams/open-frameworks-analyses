@@ -9,9 +9,9 @@
 @
 
 
-\title{Github OSS frameworks - data analysis}
-\author{Szymon Jaroszewicz, Oskar Jarczyk et.al.}
-\date{28 December 2014}
+\title{Github frameworks - data analysis}
+\author{WikiTeams.pl}
+\date{28 December 2014 - 7 January 2015}
 
 
 \begin{document}
@@ -25,15 +25,14 @@ options("warn" = -1)
 
 
 <<loadAggregatedDataset>>=
-D <- read.table("../../GitHubData/converted/result_stargazers_2013_final_mature_stars.csv", sep=";", header=T)
-#D <- read.table("../../GitHubData/Dataset-GitHub-Leszek-request/sorted_and_aggregated_enriched/result_stargazers_2013_final_mature_stars.csv", sep=";", header=T)
+D <- read.table("../results.csv", sep=";", quote = "\"", header=T)
 names(D)
-D$repository_created_at <- as.Date(D$repository_created_at)
-D$repository_pushed_at <- as.Date(D$repository_pushed_at)
+D$repo_created_at <- as.Date(D$repo_created_at)
+D$repo_pushed_at <- as.Date(D$repo_pushed_at)
 # convert some factors to numeric for easier computations
-#D$repository_fork <- as.numeric(D$repository_fork)
-#D$repository_has_wiki <- as.numeric(D$repository_has_wiki)
-#D$repository_has_issues <- as.numeric(D$repository_has_issues)
+D$project_average_rating <- as.numeric(D$project_average_rating)
+D$project_rating_count <- as.numeric(D$project_rating_count)
+D$project_activity_level <- as.numeric(D$project_activity_level)
 #D$repository_has_downloads <- as.numeric(D$repository_has_downloads)
 @
 
@@ -41,9 +40,9 @@ Read \Sexpr{nrow(D)} recods.
 
 <<histograms,fig.height=4>>=
 # discrete
-plot_mhist(D, attrs=c("stargazers_count", "repository_fork", "repository_has_wiki", "repository_has_issues"))
+plot_mhist(D, attrs=c("stargazers_count", "repo_forks_count", "contributors_count", "project_average_rating", "project_rating_count", "project_activity_level", "repo_is_fork", "repo_has_wiki", "repo_has_issues"))
 # continuous
-plot_mhist(D, attrs=c("repository_created_at", "repository_pushed_at"), date.values = T)
+plot_mhist(D, attrs=c("repo_created_at", "repo_pushed_at"), date.values = T)
 @
 
 <<histogram_cut,fig.height=4>>=
@@ -62,20 +61,27 @@ qqnorm(log(1+D$stargazers_count))
 hist(log(1+log(1+D$stargazers_count)), breaks=100)
 qqnorm(log(1+log(1+D$stargazers_count)))
 summary(D$stargazers_count)
-# delta stargazers count
-# hist(D$maximum.sum.delta_stargazing.., breaks=100)
-# hist(log(1+D$maximum.sum.delta_stargazing..), breaks=100)
-# qqnorm(log(1+D$maximum.sum.delta_stargazing..))
-# hist(log(1+log(1+D$maximum.sum.delta_stargazing..)), breaks=100)
-# qqnorm(log(1+log(1+D$maximum.sum.delta_stargazing..)))
-# summary(D$maximum.sum.delta_stargazing..)
-# zamien delta stargazers count na rating
+# openhub rating
+hist(D$project_average_rating, breaks=100)
+qqnorm(D$project_average_rating)
+summary(D$project_average_rating)
+# openhub rating count
+hist(D$project_rating_count, breaks=100)
+hist(log(1+D$project_rating_count), breaks=100)
+qqnorm(log(1+D$project_rating_count))
+hist(log(1+log(1+D$project_rating_count)), breaks=100)
+qqnorm(log(1+log(1+D$project_rating_count)))
+summary(D$project_rating_count)
+# openhub activity level
+hist(D$project_activity_level, breaks=100)
+qqnorm(D$project_activity_level)
+summary(D$project_activity_level)
 @
 
 <<apply-log>>=
 D$contributors_count <- log(1+D$contributors_count)
 D$stargazers_count <- log(1+D$stargazers_count)
-#D$maximum.sum.delta_stargazing.. <- log(1+D$maximum.sum.delta_stargazing..)
+D$project_rating_count <- log(1+D$project_rating_count)
 @
 
 <<regr.contrib.star.all>>=
@@ -83,9 +89,14 @@ ggplot(D, aes(x=contributors_count, y=log10(1+stargazers_count))) + geom_point()
 ggplot(D, aes(x=contributors_count, y=stargazers_count)) + geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
 @
 
+<<regr.rating.star.all>>=
+ggplot(D, aes(x=project_average_rating, y=log10(1+stargazers_count))) + geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+ggplot(D, aes(x=project_average_rating, y=stargazers_count)) + geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
+@
+
 <<regr.other>>=
-attrs <- c("repository_fork",
-                  "repository_has_wiki", "repository_has_issues", "repository_has_downloads")
+attrs <- c("repo_is_fork",
+                  "repo_has_wiki", "repo_has_issues")
 d <- cbind(melt(D[,attrs], id.vars=c()), stargazers_count=D$stargazers_count)
 ggplot(d,aes(x = value, y=stargazers_count)) +
        facet_wrap(~variable, scales = "free_x") +
@@ -93,14 +104,14 @@ ggplot(d,aes(x = value, y=stargazers_count)) +
 ggplot(d,aes(x = value, y=log10(1+stargazers_count))) +
        facet_wrap(~variable, scales = "free_x") +
        geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
-ggplot(D,aes(x = maximum.sum.delta_stargazing.., y=stargazers_count)) +
+ggplot(D,aes(x = project_average_rating, y=stargazers_count)) +
        geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
-ggplot(D,aes(x = maximum.sum.delta_stargazing.., y=log10(1+stargazers_count))) +
+ggplot(D,aes(x = project_average_rating, y=log10(1+stargazers_count))) +
        geom_point() + geom_smooth() + geom_smooth(method=lm, color="red")
 @
 
 <<regr.date>>=
-d <- cbind(melt(D[,c("repository_created_at", "repository_pushed_at")], id.vars=c()), stargazers_count=D$stargazers_count)
+d <- cbind(melt(D[,c("repo_created_at", "repo_pushed_at")], id.vars=c()), stargazers_count=D$stargazers_count)
 d$value <- as.Date(d$value, origin="1970-10-01")
 ggplot(d,aes(x = value, y=stargazers_count)) +
        facet_wrap(~variable, scales = "free_x") +
@@ -116,16 +127,16 @@ D$stargazers_count <- log(1+D$stargazers_count)
 
 <<model.of.stars>>=
 par(mfrow=c(2,2))
-m <- lm(stargazers_count ~ contributors_count + repository_pushed_at + repository_created_at, D, na.action=na.exclude)
+m <- lm(stargazers_count ~ contributors_count + repo_pushed_at + repo_created_at, D, na.action=na.exclude)
 summary(m)
 plot(m)
 par(mfrow=c(2,2))
-m2 <- lm(stargazers_count ~ contributors_count + repository_pushed_at + repository_created_at + repository_fork + repository_has_wiki + repository_has_issues + repository_has_downloads, D, na.action=na.exclude)
+m2 <- lm(stargazers_count ~ contributors_count + repo_pushed_at + repo_created_at + repo_is_fork + repo_has_wiki + repo_has_issues, D, na.action=na.exclude)
 summary(m2)
 plot(m2)
 anova(m, m2)
 par(mfrow=c(2,2))
-m3 <- lm(stargazers_count ~ contributors_count + repository_pushed_at + repository_created_at + repository_fork, D, na.action=na.exclude)
+m3 <- lm(stargazers_count ~ contributors_count + repo_pushed_at + repo_created_at + repo_is_fork, D, na.action=na.exclude)
 summary(m3)
 plot(m3)
 anova(m, m3)
@@ -136,7 +147,7 @@ D$star_resid <- resid(m3)
 @
 
 <<save.data>>=
-save(D, file = "../../Rdata/project_stars.RData")
+save(D, file = "../project_stars.RData")
 @
 
 

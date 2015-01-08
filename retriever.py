@@ -611,9 +611,9 @@ if __name__ == "__main__":
 
         sepinfo = ['sep=;']
         headers = ['ordinal_id', 'github_repo_id', 'repo_full_name', 'repo_html_url', 'repo_forks_count',
-                   'repo_stargazers_count', 'repo_created_at', 'repo_is_fork', 'repo_has_issues',
+                   'stargazers_count', 'contributors_count', 'repo_created_at', 'repo_is_fork', 'repo_has_issues',
                    'repo_open_issues_count', 'repo_has_wiki', 'repo_network_count',
-                   'repo_pushed_at', 'repo_size', 'repo_updated_at', 'wrepo_atchers_count',
+                   'repo_pushed_at', 'repo_size', 'repo_updated_at', 'repo_watchers_count',
                    'project_id', 'project_name', 'project_url', 'project_htmlurl', 'project_created_at',
                    'project_updated_at', 'project_homepage_url', 'project_average_rating', 'project_rating_count', 'project_review_count',
                    'project_activity_level', 'project_user_count', 'twelve_month_contributor_count', 'total_contributor_count',

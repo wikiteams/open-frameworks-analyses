@@ -46,3 +46,5 @@ It is discussable which property is a best for rating the popularity of a GitHub
 Yasca is a 3rd party code quality analyzer. We will try to analyze the code regarding their offline characteristics on programming code. Most of major languages are supported. 
 
 ### Issues survival
+
+Issues survival will need list of issues for repositories included in the main dataset. List of issues will need to have below attributes: date of issue open, date of issue closure (naturally can be 'NA'), repository name (for aggregating). Labels are also required but they can be in seperate file.

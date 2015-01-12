@@ -1,13 +1,24 @@
 My personal todo list
 
-# read openhub oauths from a secret file and keep in list
 
+ALREADY DONE:
+
+# read openhub oauths from a secret file and keep in list
 # get a list of developers from the local copy of GitHub Torrent
 ---- done
-
 # successfully read OSRC information
 ---- done
-
 # make multithreading!
-
 # and generate damn those first reports !
+
+TO DO LEFT:
+
+-----------------------------------------------------------
+
+# implement resuming
+# show progress bar basing on estimated RECORDS LEFT !
+# get issues from MYSQL data CORRESPONDING to R scripts
+# transform dataset through PYTHON CLEANUP SCRIPT
+# run all left KNITTR R scripts to generate reports
+
+-----------------------------------------------------------

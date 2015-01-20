@@ -52,6 +52,7 @@ except ImportError:
 
 version_name = 'Version 1.01 codename: Ducky duck'
 openhub_query_tags = None
+force_csv_append = None
 pagination = 10
 NullChar = 'NaN'
 sleepy_head_time = 25
@@ -560,6 +561,8 @@ if __name__ == "__main__":
     if args.tags:
         openhub_query_tags = args.tags.split(',')
         print 'Tags used to query open hub will be: ' + str(openhub_query_tags)
+    if args.force_append:
+        force_csv_append = True
     if args.resume_point:
         print 'Resume repo id is: ' + str(args.resume_point)
 
@@ -624,7 +627,8 @@ if __name__ == "__main__":
     lapis = local_gh.get_api_status()
     print 'Current status of GitHub API...: ' + lapis.status + ' (last update: ' + str(lapis.last_updated) + ')'
 
-    with open('results.csv', 'wb') as csv_file:
+    result_csv_filename = 'results_' + openhub_query_tags[0] + '.csv'
+    with open(result_csv_filename, 'ab' if force_csv_append else 'wb') as csv_file:
         threads = []
         thread_id_count = 0
 

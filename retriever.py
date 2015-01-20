@@ -37,6 +37,7 @@ import threading
 import codecs
 import time
 import os
+import argparse
 from github import Github, UnknownObjectException, GithubException
 # import ElementTree based on the python version
 try:
@@ -49,8 +50,8 @@ except ImportError:
     import _mysql as MSQL
 
 
-version_name = 'Version 1.00 codename: Black duck'
-
+version_name = 'Version 1.01 codename: Ducky duck'
+openhub_query_tags = None
 pagination = 10
 NullChar = 'NaN'
 sleepy_head_time = 25
@@ -224,8 +225,9 @@ class GeneralGetter(threading.Thread):
         global results_done
         global results_all
         global pagination
+        global openhub_query_tags
 
-        self.params_sort_rating = urllib.urlencode({'query': 'tag:framework', 'api_key': return_random_openhub_key(),
+        self.params_sort_rating = urllib.urlencode({'query': 'tag:' + openhub_query_tags[0], 'api_key': return_random_openhub_key(),
                                                     'sort': 'rating', 'page': page})
         self.projects_api_url = "https://www.openhub.net/projects.xml?%s" % (self.params_sort_rating)
 
@@ -430,7 +432,7 @@ class GeneralGetter(threading.Thread):
                         self.developer_all_creations = 0
                         self.developer_all_issues_created = 0
                         self.developer_all_pull_requests = 0
-                                
+
                         self.tries = 5
 
                         while True:
@@ -503,13 +505,13 @@ class GeneralGetter(threading.Thread):
                         self.collection = [str(((page-1)*pagination) + self.i), self.gh_entity, self.repo_full_name, self.repo_html_url,
                                            str(self.repo_forks_count), str(self.repo_stargazers_count), str(self.contributors_count),
                                            str(self.repo_created_at), str(self.repo_is_fork), str(self.repo_has_issues), str(self.repo_open_issues_count),
-                                           str(self.repo_has_wiki), str(self.repo_network_count), str(self.repo_pushed_at), str(self.repo_size), 
+                                           str(self.repo_has_wiki), str(self.repo_network_count), str(self.repo_pushed_at), str(self.repo_size),
                                            str(self.repo_updated_at), str(self.repo_watchers_count), self.project_id,
                                            self.project_name, self.project_url, self.project_htmlurl, str(self.project_created_at),
-                                           str(self.project_updated_at), self.project_homepage_url, str(self.project_average_rating), 
+                                           str(self.project_updated_at), self.project_homepage_url, str(self.project_average_rating),
                                            str(self.project_rating_count), str(self.project_review_count), self.project_activity_level,
                                            str(self.project_user_count), str(self.twelve_month_contributor_count), str(self.total_contributor_count),
-                                           str(self.twelve_month_commit_count), str(self.total_commit_count), str(self.total_code_lines), 
+                                           str(self.twelve_month_commit_count), str(self.total_commit_count), str(self.total_code_lines),
                                            self.main_language_name, str(self.developer_works_during_bd), str(self.developer_works_period),
                                            str(self.developer_all_pushes), str(self.developer_all_stars_given), str(self.developer_all_creations),
                                            str(self.developer_all_issues_created), str(self.developer_all_pull_requests)]
@@ -544,6 +546,25 @@ def num_working(threads):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-tags", help="type of software [tags] you wish to parse from openhub", type=str)
+    parser.add_argument("-r", "--resume", help="resume parse ? [True/False]", action="store_true")
+    parser.add_argument("-resume_point", help="resume point (ordinal_id)", type=int)
+    parser.add_argument("-fa", "--force_append", help="force appending results to CSV instead of overwrite", action="store_true")
+    parser.add_argument("-v", "--verbose", help="verbose messaging ? [True/False]", action="store_true")
+    parser.add_argument("-s", "--excel", help="add excel sepinfo at the beginning ? [True/False]", action="store_true")
+    args = parser.parse_args()
+    if args.verbose:
+        scream.intelliTag_verbose = True
+        scream.say("verbosity turned on")
+    if args.tags:
+        openhub_query_tags = args.tags.split(',')
+        print 'Tags used to query open hub will be: ' + str(openhub_query_tags)
+    if args.resume_point:
+        print 'Resume repo id is: ' + str(args.resume_point)
+
+    assert len(openhub_query_tags) < 2 # I couldn't find a way to query openhub for multiple tags..
+
     first_conn = MSQL.connect(host="10.4.4.3", port=3306, user=open('mysqlu.dat', 'r').read(),
                               passwd=open('mysqlp.dat', 'r').read(), db="github", connect_timeout=50000000)
     print 'Testing mySql connection...'

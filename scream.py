@@ -9,7 +9,7 @@ DISABLE__STD = False
 logging.config.fileConfig('logging.conf')
 logger = logging.getLogger(__name__)
 
-intelliTag_verbose = True
+intelliTag_verbose = False
 
 
 def log(s):

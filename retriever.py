@@ -52,7 +52,8 @@ except ImportError:
 
 version_name = 'Version 1.01 codename: Ducky duck'
 openhub_query_tags = None
-force_csv_append = None
+force_csv_append = False
+force_add_excelsep = False
 pagination = 10
 NullChar = 'NaN'
 sleepy_head_time = 25
@@ -563,6 +564,8 @@ if __name__ == "__main__":
         print 'Tags used to query open hub will be: ' + str(openhub_query_tags)
     if args.force_append:
         force_csv_append = True
+    if args.excel:
+        force_add_excelsep = True
     if args.resume_point:
         print 'Resume repo id is: ' + str(args.resume_point)
 
@@ -646,7 +649,8 @@ if __name__ == "__main__":
                    'developer_works_during_bd', 'developer_works_period',
                    'developer_all_pushes', 'developer_all_stars_given', 'developer_all_creations',
                    'developer_all_issues_created', 'developer_all_pull_requests']
-        csv_writer.writerow(sepinfo)
+        if force_add_excelsep:
+            csv_writer.writerow(sepinfo)
         csv_writer.writerow(headers)
 
         Github(login_or_token=credential['pass'], client_id=credential['client_id'],

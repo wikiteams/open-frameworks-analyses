@@ -33,6 +33,12 @@ SOFTWARE.
 
 In this project we take data from openhub to create a list of frameworks which have their open source available on GitHub portal, next we make analyses of their popularity together with issues survival methods and offline assessment of code.
 
+#### FAQ
+
+**Q:** Who can add a project to OpenHub ?
+
+**A:** Everyone – project’s contributors and owners.
+
 ### OpenHub
 
 We took list of open source frameworks from the OpenHub and filtered those which don't have a source code on the GitHub. This OpenHub dataset contains also some other useful information, e.g. rating from users, reports on activity et cetera.
